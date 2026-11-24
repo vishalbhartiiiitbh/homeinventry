@@ -7,41 +7,147 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.homeinvetry.ui.theme.HomeinvetryTheme
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.homeinvetry.core.navigation.HomeStockBottomBar
+import com.example.homeinvetry.core.navigation.Screen
+import com.example.homeinvetry.core.navigation.bottomNavScreens
+import com.example.homeinvetry.feature.dashboard.HomeScreen
+import com.example.homeinvetry.feature.inventory.AddItemScreen
+import com.example.homeinvetry.feature.inventory.InventoryScreen
+import com.example.homeinvetry.feature.inventory.ItemDetailScreen
+import com.example.homeinvetry.feature.reminders.RemindersScreen
+import com.example.homeinvetry.feature.search.SearchScreen
+import com.example.homeinvetry.feature.settings.SettingsScreen
+import com.example.homeinvetry.feature.shopping.ShoppingScreen
+import com.example.homeinvetry.ui.theme.HomeStockTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            HomeinvetryTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+            HomeStockTheme {
+                HomeStockApp()
             }
         }
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+fun HomeStockApp() {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    HomeinvetryTheme {
-        Greeting("Android")
+    val shouldShowBottomBar = bottomNavScreens.any { it.route == currentRoute }
+
+    Scaffold(
+        bottomBar = {
+            if (shouldShowBottomBar) {
+                HomeStockBottomBar(navController = navController)
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            // 1. Home Dashboard
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onNavigateToInventory = { filter ->
+                        navController.navigate("${Screen.Inventory.route}?filter=${filter ?: ""}")
+                    },
+                    onNavigateToShopping = { navController.navigate(Screen.Shopping.route) },
+                    onNavigateToReminders = { navController.navigate(Screen.Reminders.route) },
+                    onNavigateToAddItem = { navController.navigate(Screen.AddItem.route) },
+                    onNavigateToSearch = { navController.navigate(Screen.Search.route) },
+                    onNavigateToItemDetail = { itemId ->
+                        navController.navigate(Screen.ItemDetail.createRoute(itemId))
+                    }
+                )
+            }
+
+            // 2. Inventory Management
+            composable(
+                route = "${Screen.Inventory.route}?filter={filter}",
+                arguments = listOf(navArgument("filter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val filter = backStackEntry.arguments?.getString("filter")
+                InventoryScreen(
+                    initialFilter = filter,
+                    onNavigateToAddItem = { navController.navigate(Screen.AddItem.route) },
+                    onNavigateToItemDetail = { itemId ->
+                        navController.navigate(Screen.ItemDetail.createRoute(itemId))
+                    }
+                )
+            }
+
+            // 3. Shopping Management
+            composable(Screen.Shopping.route) {
+                ShoppingScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // 4. Reminders & Household Tasks
+            composable(Screen.Reminders.route) {
+                RemindersScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // 5. Settings & Config
+            composable(Screen.Settings.route) {
+                SettingsScreen()
+            }
+
+            // Sub-screen: Add Item
+            composable(Screen.AddItem.route) {
+                AddItemScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onItemSaved = { newItem ->
+                        // Navigates back to inventory
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // Sub-screen: Item Details
+            composable(
+                route = Screen.ItemDetail.route,
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
+                ItemDetailScreen(
+                    itemId = itemId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Sub-screen: Global Search
+            composable(Screen.Search.route) {
+                SearchScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToItemDetail = { itemId ->
+                        navController.navigate(Screen.ItemDetail.createRoute(itemId))
+                    }
+                )
+            }
+        }
     }
 }
