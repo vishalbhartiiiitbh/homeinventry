@@ -1,5 +1,6 @@
 package com.example.homeinvetry.core.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.homeinvetry.R
 import com.example.homeinvetry.data.sample.StockStatus
 import com.example.homeinvetry.ui.theme.*
 
@@ -71,7 +73,7 @@ fun MetricCard(
                 .padding(14.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
                 modifier = Modifier
@@ -93,13 +95,14 @@ fun MetricCard(
                     text = value,
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp
+                        fontSize = 22.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = SecondaryText,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     ),
@@ -146,7 +149,8 @@ fun QuickActionButton(
             text = title,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onBackground
             ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -169,27 +173,27 @@ fun HomeStockHeader(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(42.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
                     contentDescription = "HomeStock Logo",
-                    tint = PrimaryGreen,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(38.dp)
                 )
             }
             Text(
                 text = "HomeStock",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp
+                    fontSize = 24.sp,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             )
         }
@@ -199,7 +203,7 @@ fun HomeStockHeader(
                 Icon(
                     imageVector = Icons.Outlined.Notifications,
                     contentDescription = "Notifications",
-                    tint = MainText,
+                    tint = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.size(26.dp)
                 )
                 Box(
