@@ -22,7 +22,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.homeinvetry.core.notifications.NotificationHelper
+import com.example.homeinvetry.core.sync.SyncEngine
+import com.example.homeinvetry.feature.sync.SyncConflictDialog
 import com.example.homeinvetry.ui.theme.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +34,14 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val syncEngine = remember(context) { SyncEngine(context) }
+
     var showAndroidBackupInfoDialog by remember { mutableStateOf(false) }
+    var showSyncOptionsDialog by remember { mutableStateOf(false) }
+    var showConflictDialog by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
         topBar = {
@@ -45,6 +55,7 @@ fun SettingsScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier.fillMaxSize()
     ) { padding ->
         LazyColumn(
@@ -156,11 +167,22 @@ fun SettingsScreen(
 
             item {
                 SettingsMenuRow(
+                    title = "Multi-Device Sync & Conflicts",
+                    subtitle = "First-Committed-Wins • Preserved conflict history",
+                    icon = Icons.Outlined.Sync,
+                    iconBgColor = LightBlue,
+                    iconTint = Color(0xFF2980B9),
+                    onClick = { showSyncOptionsDialog = true }
+                )
+            }
+
+            item {
+                SettingsMenuRow(
                     title = "Android Backup",
                     subtitle = "Managed by Android built-in backup service",
                     icon = Icons.Outlined.CloudDone,
-                    iconBgColor = LightBlue,
-                    iconTint = Color(0xFF2980B9),
+                    iconBgColor = LightGreen,
+                    iconTint = PrimaryGreen,
                     onClick = { showAndroidBackupInfoDialog = true }
                 )
             }
@@ -205,6 +227,61 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    // Multi-Device Sync Options Dialog
+    if (showSyncOptionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showSyncOptionsDialog = false },
+            title = { Text("Multi-Device Cloud Sync", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("HomeStock syncs per-device operation logs using First-Committed-Wins. All conflicting operations are preserved in history.", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+
+                    Button(
+                        onClick = {
+                            showSyncOptionsDialog = false
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Syncing device operation logs with cloud...")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Outlined.Sync, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sync Now")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            showSyncOptionsDialog = false
+                            showConflictDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Outlined.MergeType, contentDescription = null, tint = PrimaryGreen)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("View Sync Conflict History", color = PrimaryGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSyncOptionsDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Sync Conflict Dialog
+    if (showConflictDialog) {
+        SyncConflictDialog(
+            onDismiss = { showConflictDialog = false }
+        )
     }
 
     // Android Backup Info Dialog

@@ -19,9 +19,11 @@ import kotlinx.coroutines.launch
         StockTransactionEntity::class,
         ShoppingItemEntity::class,
         ReminderEntity::class,
-        StorageLocationEntity::class
+        StorageLocationEntity::class,
+        SyncOperationEntity::class,
+        SyncConflictEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class HomeStockDatabase : RoomDatabase() {
@@ -32,6 +34,7 @@ abstract class HomeStockDatabase : RoomDatabase() {
     abstract fun shoppingDao(): ShoppingDao
     abstract fun reminderDao(): ReminderDao
     abstract fun storageLocationDao(): StorageLocationDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
         @Volatile
