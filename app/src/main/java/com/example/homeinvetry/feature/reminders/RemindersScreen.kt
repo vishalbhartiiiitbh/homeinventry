@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
@@ -66,11 +67,22 @@ fun RemindersScreen(
                         Icon(Icons.Outlined.Search, contentDescription = "Search")
                     }
                     IconButton(onClick = { showAddReminderDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Reminder")
+                        Icon(Icons.Default.Add, contentDescription = "Add Reminder", tint = PrimaryGreen)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAddReminderDialog = true },
+                containerColor = PrimaryGreen,
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Reminder", modifier = Modifier.size(28.dp))
+            }
         },
         modifier = modifier.fillMaxSize()
     ) { padding ->
@@ -121,11 +133,35 @@ fun RemindersScreen(
             }
 
             // Reminder Cards List from Room
-            items(filteredReminders, key = { it.id }) { reminder ->
-                ReminderCardViewEntity(
-                    reminder = reminder,
-                    onToggleComplete = { remindersViewModel.toggleComplete(reminder) }
-                )
+            if (filteredReminders.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Event,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = SecondaryText
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("No reminders or household tasks", style = MaterialTheme.typography.titleMedium)
+                            Text("Tap (+) to add a reminder or task.", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                        }
+                    }
+                }
+            } else {
+                items(filteredReminders, key = { it.id }) { reminder ->
+                    ReminderCardViewEntity(
+                        reminder = reminder,
+                        onToggleComplete = { remindersViewModel.toggleComplete(reminder) },
+                        onDelete = { remindersViewModel.deleteReminder(reminder.id) }
+                    )
+                }
             }
         }
     }
@@ -146,20 +182,24 @@ fun RemindersScreen(
                         value = title,
                         onValueChange = { title = it },
                         label = { Text("Task Title *") },
-                        placeholder = { Text("e.g. Service Air Conditioner") },
-                        singleLine = true
+                        placeholder = { Text("e.g. Pay Electricity Bill") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
                         label = { Text("Description / Details") },
-                        maxLines = 2
+                        placeholder = { Text("Due on 30 Nov 2026") },
+                        maxLines = 2,
+                        shape = RoundedCornerShape(12.dp)
                     )
                     OutlinedTextField(
                         value = dueDate,
                         onValueChange = { dueDate = it },
                         label = { Text("Due Date / Repeat") },
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
                 }
             },
@@ -184,7 +224,8 @@ fun RemindersScreen(
 @Composable
 fun ReminderCardViewEntity(
     reminder: ReminderEntity,
-    onToggleComplete: () -> Unit
+    onToggleComplete: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val (cardBg, btnBg, btnTextTint) = when (reminder.type) {
         "EXPIRY" -> Triple(LightRed, Color(0xFFFADBD8), Color(0xFFC0392B))
@@ -242,31 +283,42 @@ fun ReminderCardViewEntity(
                 }
             }
 
-            // Action Pill Button
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = btnBg,
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .clickable { onToggleComplete() }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Action Pill Button
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = btnBg,
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .clickable { onToggleComplete() }
                 ) {
-                    Text(
-                        text = if (reminder.isCompleted) "Done ✔" else reminder.actionLabel,
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = btnTextTint
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = if (reminder.isCompleted) "Done ✔" else reminder.actionLabel,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = btnTextTint
+                            )
                         )
-                    )
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = btnTextTint,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
                     Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = btnTextTint,
-                        modifier = Modifier.size(16.dp)
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Delete Reminder",
+                        tint = Color(0xFFC0392B),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

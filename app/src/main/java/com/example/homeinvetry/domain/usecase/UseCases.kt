@@ -88,6 +88,7 @@ class AddStockUseCase(
         val item = inventoryRepository.getItemByIdSync(itemId) ?: return
         val newQuantity = item.quantity + addedQuantity
         val newStatus = if (newQuantity > item.minStock) "FRESH" else item.status
+        val finalExpiry = if (expiryDate.isNotBlank()) expiryDate.trim() else item.expiryDate
 
         // Insert new stock batch
         inventoryRepository.insertBatch(
@@ -97,16 +98,18 @@ class AddStockUseCase(
                 quantity = addedQuantity,
                 unit = item.unit,
                 purchaseDate = "Today",
-                expiryDate = expiryDate.ifEmpty { item.expiryDate }
+                expiryDate = finalExpiry
             )
         )
 
-        // Update inventory item
+        // Update inventory item with updated quantity and updated expiry date
         inventoryRepository.updateItem(
             item.copy(
                 quantity = newQuantity,
                 batchCount = item.batchCount + 1,
                 status = newStatus,
+                expiryDate = finalExpiry,
+                purchasePrice = if (purchasePrice > 0.0) purchasePrice else item.purchasePrice,
                 updatedAt = System.currentTimeMillis()
             )
         )
@@ -118,7 +121,7 @@ class AddStockUseCase(
                 transactionType = "ADD",
                 quantityChange = addedQuantity,
                 unit = item.unit,
-                notes = "Added $addedQuantity ${item.unit} to stock."
+                notes = "Added $addedQuantity ${item.unit} to stock (Expiry: $finalExpiry)."
             )
         )
     }

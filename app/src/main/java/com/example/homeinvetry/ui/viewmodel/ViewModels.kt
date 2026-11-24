@@ -5,11 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.homeinvetry.data.local.HomeStockDatabase
 import com.example.homeinvetry.data.local.entity.*
-import com.example.homeinvetry.data.repository.InventoryRepository
-import com.example.homeinvetry.data.repository.ReminderRepository
-import com.example.homeinvetry.data.repository.ShoppingRepository
-import com.example.homeinvetry.domain.usecase.AddStockUseCase
-import com.example.homeinvetry.domain.usecase.ConsumeStockFefoUseCase
+import com.example.homeinvetry.data.repository.*
+import com.example.homeinvetry.domain.usecase.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -46,16 +44,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class InventoryViewModel(application: Application) : AndroidViewModel(application) {
     private val db = HomeStockDatabase.getDatabase(application)
     val inventoryRepo = InventoryRepository(db.inventoryDao(), db.stockBatchDao(), db.stockTransactionDao(), db.storageLocationDao())
-    val shoppingRepo = ShoppingRepository(db.shoppingDao())
-
-    private val consumeFefoUseCase = ConsumeStockFefoUseCase(inventoryRepo, shoppingRepo)
 
     val selectedLocation = MutableStateFlow("All")
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val inventoryItems: StateFlow<List<InventoryItemEntity>> = selectedLocation.flatMapLatest { loc ->
         if (loc == "All" || loc.isBlank()) {
             inventoryRepo.getAllItems()
@@ -67,14 +62,8 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     val storageLocations: StateFlow<List<StorageLocationEntity>> = inventoryRepo.getAllLocations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun selectLocation(loc: String) {
-        selectedLocation.value = loc
-    }
-
-    fun consumeStockFefo(itemId: String, qty: Double) {
-        viewModelScope.launch {
-            consumeFefoUseCase(itemId, qty)
-        }
+    fun selectLocation(location: String) {
+        selectedLocation.value = location
     }
 
     fun deleteItem(item: InventoryItemEntity) {
@@ -133,14 +122,19 @@ class ShoppingViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             shoppingRepo.updateShoppingItem(item.copy(isPurchased = true))
 
-            // Check if corresponding inventory item exists or create
-            val allItems = inventoryRepo.getItemByIdSync(item.id)
-            if (allItems != null) {
-                addStockUseCase(item.id, actualQty, price)
+            val targetItemId = item.id.removePrefix("auto_")
+            val existingItem = inventoryRepo.getItemByIdSync(targetItemId)
+
+            if (existingItem != null) {
+                addStockUseCase(targetItemId, actualQty, price)
             } else {
-                // Insert new inventory item with stock
-                inventoryRepo.insertItem(
-                    InventoryItemEntity(
+                val allItems = inventoryRepo.getAllItems().first()
+                val matchByName = allItems.find { it.name.equals(item.name, ignoreCase = true) }
+
+                if (matchByName != null) {
+                    addStockUseCase(matchByName.id, actualQty, price)
+                } else {
+                    val newItem = InventoryItemEntity(
                         name = item.name,
                         category = item.category,
                         storageLocation = item.storageLocation,
@@ -149,7 +143,18 @@ class ShoppingViewModel(application: Application) : AndroidViewModel(application
                         purchasePrice = price,
                         status = "FRESH"
                     )
-                )
+                    inventoryRepo.insertItem(newItem)
+                    inventoryRepo.insertBatch(
+                        StockBatchEntity(
+                            itemId = newItem.id,
+                            batchNumber = "BATCH-01",
+                            quantity = actualQty,
+                            unit = item.unit,
+                            purchaseDate = "Today",
+                            expiryDate = "2026-12-31"
+                        )
+                    )
+                }
             }
         }
     }
@@ -162,20 +167,28 @@ class RemindersViewModel(application: Application) : AndroidViewModel(applicatio
     val reminders: StateFlow<List<ReminderEntity>> = reminderRepo.getAllReminders()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun toggleComplete(reminder: ReminderEntity) {
+    fun toggleReminderCompleted(reminder: ReminderEntity) {
         viewModelScope.launch {
             reminderRepo.updateReminder(reminder.copy(isCompleted = !reminder.isCompleted))
         }
     }
 
-    fun addReminder(title: String, description: String, type: String, dueDate: String) {
+    fun toggleComplete(reminder: ReminderEntity) = toggleReminderCompleted(reminder)
+
+    fun addReminder(title: String, description: String = "", type: String = "TASK", dueDate: String = "Tomorrow") {
         viewModelScope.launch {
             reminderRepo.insertReminder(
                 ReminderEntity(
                     title = title,
-                    description = description,
+                    description = description.ifEmpty { "Due $dueDate" },
                     type = type,
-                    dueDate = dueDate
+                    dueDate = dueDate,
+                    iconEmoji = when (type.uppercase()) {
+                        "EXPIRY" -> "🥛"
+                        "REFILL" -> "🧴"
+                        "MAINTENANCE" -> "🚰"
+                        else -> "🔔"
+                    }
                 )
             )
         }

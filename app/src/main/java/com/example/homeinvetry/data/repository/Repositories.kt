@@ -78,6 +78,10 @@ class InventoryRepository(
 
     suspend fun deleteLocationByName(name: String) = withContext(Dispatchers.IO) {
         storageLocationDao.deleteLocationByName(name)
+        val itemsInLocation = inventoryDao.getItemsByLocationSync(name)
+        itemsInLocation.forEach { item ->
+            inventoryDao.updateItem(item.copy(storageLocation = "Unassigned"))
+        }
     }
 }
 

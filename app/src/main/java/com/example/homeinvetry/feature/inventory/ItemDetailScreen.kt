@@ -242,29 +242,56 @@ fun ItemDetailScreen(
         }
     }
 
-    // Add Stock Dialog
+    // Add Stock Dialog with Expiry Date & Price update options
     if (showAddStockDialog) {
         var addQty by remember { mutableStateOf("1.0") }
+        var addExpiryDate by remember { mutableStateOf(currentItem.expiryDate) }
+        var addPrice by remember { mutableStateOf("0.00") }
+
         AlertDialog(
             onDismissRequest = { showAddStockDialog = false },
-            title = { Text("Add Stock to ${currentItem.name}") },
+            title = { Text("Add Stock to ${currentItem.name}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
             text = {
-                OutlinedTextField(
-                    value = addQty,
-                    onValueChange = { addQty = it },
-                    label = { Text("Quantity to add (${currentItem.unit})") },
-                    singleLine = true
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Enter quantity and batch expiry date for newly added stock:", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+
+                    OutlinedTextField(
+                        value = addQty,
+                        onValueChange = { addQty = it },
+                        label = { Text("Quantity to Add (${currentItem.unit}) *") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = addExpiryDate,
+                        onValueChange = { addExpiryDate = it },
+                        label = { Text("Batch Expiry Date (YYYY-MM-DD) *") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = addPrice,
+                        onValueChange = { addPrice = it },
+                        label = { Text("Purchase Price ($)") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         val added = addQty.toDoubleOrNull() ?: 0.0
-                        itemDetailViewModel.addStock(itemId, added)
-                        showAddStockDialog = false
+                        val price = addPrice.toDoubleOrNull() ?: 0.0
+                        if (added > 0) {
+                            itemDetailViewModel.addStock(itemId, added, price, addExpiryDate)
+                            showAddStockDialog = false
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
-                ) { Text("Confirm Add & Save to Room") }
+                ) { Text("Confirm Add & Update Expiry") }
             },
             dismissButton = {
                 TextButton(onClick = { showAddStockDialog = false }) { Text("Cancel") }

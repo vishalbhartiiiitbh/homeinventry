@@ -12,6 +12,9 @@ interface InventoryDao {
     @Query("SELECT * FROM inventory_items WHERE storageLocation = :location ORDER BY name ASC")
     fun getItemsByLocation(location: String): Flow<List<InventoryItemEntity>>
 
+    @Query("SELECT * FROM inventory_items WHERE storageLocation = :location ORDER BY name ASC")
+    fun getItemsByLocationSync(location: String): List<InventoryItemEntity>
+
     @Query("SELECT * FROM inventory_items WHERE id = :id")
     fun getItemById(id: String): Flow<InventoryItemEntity?>
 
