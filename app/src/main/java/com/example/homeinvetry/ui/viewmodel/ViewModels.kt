@@ -236,8 +236,9 @@ class ItemDetailViewModel(application: Application) : AndroidViewModel(applicati
     private val db = HomeStockDatabase.getDatabase(application)
     private val inventoryRepo = InventoryRepository(db.inventoryDao(), db.stockBatchDao(), db.stockTransactionDao(), db.storageLocationDao())
     private val shoppingRepo = ShoppingRepository(db.shoppingDao())
+    private val reminderRepo = ReminderRepository(db.reminderDao())
 
-    private val consumeFefoUseCase = ConsumeStockFefoUseCase(inventoryRepo, shoppingRepo)
+    private val consumeFefoUseCase = ConsumeStockFefoUseCase(inventoryRepo, shoppingRepo, reminderRepo)
     private val addStockUseCase = AddStockUseCase(inventoryRepo)
 
     fun getItem(itemId: String): Flow<InventoryItemEntity?> = inventoryRepo.getItemById(itemId)

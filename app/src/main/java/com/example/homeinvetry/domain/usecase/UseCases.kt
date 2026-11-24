@@ -2,12 +2,14 @@ package com.example.homeinvetry.domain.usecase
 
 import com.example.homeinvetry.data.local.entity.*
 import com.example.homeinvetry.data.repository.InventoryRepository
+import com.example.homeinvetry.data.repository.ReminderRepository
 import com.example.homeinvetry.data.repository.ShoppingRepository
 import kotlin.math.max
 
 class ConsumeStockFefoUseCase(
     private val inventoryRepository: InventoryRepository,
-    private val shoppingRepository: ShoppingRepository
+    private val shoppingRepository: ShoppingRepository,
+    private val reminderRepository: ReminderRepository
 ) {
     suspend operator fun invoke(itemId: String, quantityToConsume: Double) {
         if (quantityToConsume <= 0) return
@@ -53,7 +55,7 @@ class ConsumeStockFefoUseCase(
             )
         )
 
-        // Auto suggest on shopping list if low stock
+        // Auto suggest on shopping list & create Refill Reminder if low/out of stock
         if (newQuantity <= item.minStock) {
             val suggestedQty = max(1.0, item.bufferStock - newQuantity)
             shoppingRepository.insertShoppingItem(
@@ -68,6 +70,20 @@ class ConsumeStockFefoUseCase(
                     brand = item.brand,
                     storageLocation = item.storageLocation,
                     iconEmoji = item.iconEmoji
+                )
+            )
+
+            // Insert single Refill Reminder (overwrites existing with same id if already present)
+            reminderRepository.insertReminder(
+                ReminderEntity(
+                    id = "refill_${item.id}",
+                    title = "${item.name} Refill Needed",
+                    description = if (newQuantity == 0.0) "Out of stock! Refill needed." else "Low stock (${newQuantity.toInt()} ${item.unit} left). Refill needed.",
+                    type = "REFILL",
+                    dueDate = "Today",
+                    actionLabel = "Mark as Seen",
+                    iconEmoji = "🧴",
+                    relatedItemId = item.id
                 )
             )
         }
