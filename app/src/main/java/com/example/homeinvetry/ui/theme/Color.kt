@@ -1,5 +1,7 @@
 package com.example.homeinvetry.ui.theme
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 val PrimaryGreen = Color(0xFF168A45)
@@ -24,3 +26,23 @@ val DarkLightGreen = Color(0xFF1B382B)
 val DarkLightYellow = Color(0xFF3D3520)
 val DarkLightBlue = Color(0xFF1E3246)
 val DarkLightRed = Color(0xFF422125)
+
+@Composable
+fun adaptiveLightGreen(isDark: Boolean = MaterialTheme.colorScheme.background == DarkBackground): Color {
+    return if (isDark) DarkLightGreen else LightGreen
+}
+
+@Composable
+fun adaptiveLightYellow(isDark: Boolean = MaterialTheme.colorScheme.background == DarkBackground): Color {
+    return if (isDark) DarkLightYellow else LightYellow
+}
+
+@Composable
+fun adaptiveLightBlue(isDark: Boolean = MaterialTheme.colorScheme.background == DarkBackground): Color {
+    return if (isDark) DarkLightBlue else LightBlue
+}
+
+@Composable
+fun adaptiveLightRed(isDark: Boolean = MaterialTheme.colorScheme.background == DarkBackground): Color {
+    return if (isDark) DarkLightRed else LightRed
+}

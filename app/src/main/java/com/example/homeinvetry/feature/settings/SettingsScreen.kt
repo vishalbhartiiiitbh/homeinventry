@@ -39,6 +39,7 @@ fun SettingsScreen(
     var showAndroidBackupInfoDialog by remember { mutableStateOf(false) }
     var showSyncOptionsDialog by remember { mutableStateOf(false) }
     var showConflictDialog by remember { mutableStateOf(false) }
+    var showAppearanceDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -48,7 +49,7 @@ fun SettingsScreen(
                 title = { Text("Settings", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
                 navigationIcon = {
                     IconButton(onClick = { /* Settings Icon */ }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MainText)
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -61,11 +62,10 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(AppBackground),
+                .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Settings Menu Items (My Household, Notifications & Household Members removed)
             item {
                 SettingsMenuRow(
                     title = "Household Analytics & Insights",
@@ -102,10 +102,11 @@ fun SettingsScreen(
             item {
                 SettingsMenuRow(
                     title = "Appearance",
-                    subtitle = "Light / Dark Mode",
+                    subtitle = "Light / Dark Mode • ${ThemeManager.currentThemeMode.displayName}",
                     icon = Icons.Outlined.Brightness4,
                     iconBgColor = Color(0xFFECEFF1),
-                    iconTint = MainText
+                    iconTint = MaterialTheme.colorScheme.onBackground,
+                    onClick = { showAppearanceDialog = true }
                 )
             }
 
@@ -131,6 +132,13 @@ fun SettingsScreen(
         }
     }
 
+    // Appearance Theme Selector Dialog
+    if (showAppearanceDialog) {
+        AppearanceDialog(
+            onDismiss = { showAppearanceDialog = false }
+        )
+    }
+
     // Multi-Device Sync Options Dialog
     if (showSyncOptionsDialog) {
         AlertDialog(
@@ -138,7 +146,7 @@ fun SettingsScreen(
             title = { Text("Multi-Device Cloud Sync", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("HomeStock syncs per-device operation logs using First-Committed-Wins. All conflicting operations are preserved in history.", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                    Text("HomeStock syncs per-device operation logs using First-Committed-Wins. All conflicting operations are preserved in history.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
 
                     Button(
                         onClick = {
@@ -208,10 +216,10 @@ fun SettingsScreen(
                     Text("Protected Household Data:", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("• Inventory items, categories & storage locations", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
-                        Text("• Stock batches, transactions & FEFO rules", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
-                        Text("• Shopping lists & item preferences", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
-                        Text("• Reminders, maintenance & household tasks", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                        Text("• Inventory items, categories & storage locations", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        Text("• Stock batches, transactions & FEFO rules", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        Text("• Shopping lists & item preferences", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        Text("• Reminders, maintenance & household tasks", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -298,13 +306,14 @@ fun SettingsMenuRow(
                         text = title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     )
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = SecondaryText,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                     )
@@ -314,7 +323,7 @@ fun SettingsMenuRow(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = SecondaryText,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
         }
