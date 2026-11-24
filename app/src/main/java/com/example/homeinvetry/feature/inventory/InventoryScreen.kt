@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.homeinvetry.data.local.entity.InventoryItemEntity
 import com.example.homeinvetry.ui.theme.*
 import com.example.homeinvetry.ui.viewmodel.InventoryViewModel
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,9 +38,11 @@ fun InventoryScreen(
     initialFilter: String? = null,
     onNavigateToAddItem: (selectedLocationName: String) -> Unit,
     onNavigateToItemDetail: (itemId: String) -> Unit,
+    onNavigateToSearch: () -> Unit = {},
     modifier: Modifier = Modifier,
     inventoryViewModel: InventoryViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val itemsList by inventoryViewModel.inventoryItems.collectAsState()
     val storageLocationsEntities by inventoryViewModel.storageLocations.collectAsState()
     val selectedLocationName by inventoryViewModel.selectedLocation.collectAsState()
@@ -59,6 +64,13 @@ fun InventoryScreen(
     val displayedLocationTitle = if (selectedLocationName == "All") "All Inventories" else selectedLocationName
     val displayedItemCount = itemsList.size
 
+    val barcodeScanner = remember(context) {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .allowManualInput()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
+    }
+
     val selectedLocationIcon = when (selectedLocationName.lowercase()) {
         "pantry" -> Icons.Default.Kitchen
         "kitchen" -> Icons.Default.Countertops
@@ -75,7 +87,27 @@ fun InventoryScreen(
             TopAppBar(
                 title = { Text("Inventory", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
                 actions = {
-                    IconButton(onClick = { /* Search */ }) {
+                    IconButton(onClick = {
+                        try {
+                            barcodeScanner.startScan()
+                                .addOnSuccessListener { barcode ->
+                                    val raw = barcode.rawValue
+                                    if (!raw.isNullOrBlank()) {
+                                        val existing = itemsList.find { it.barcode == raw }
+                                        if (existing != null) {
+                                            onNavigateToItemDetail(existing.id)
+                                        } else {
+                                            onNavigateToAddItem(selectedLocationName)
+                                        }
+                                    }
+                                }
+                        } catch (e: Exception) {
+                            onNavigateToAddItem(selectedLocationName)
+                        }
+                    }) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode to Find or Add", tint = PrimaryGreen)
+                    }
+                    IconButton(onClick = onNavigateToSearch) {
                         Icon(Icons.Outlined.Search, contentDescription = "Search")
                     }
                     IconButton(onClick = { showLocationSelectorDialog = true }) {
@@ -102,7 +134,7 @@ fun InventoryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(AppBackground),
+                .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -251,7 +283,7 @@ fun InventoryScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("No items in $displayedLocationTitle", style = MaterialTheme.typography.titleMedium)
-                            Text("Tap (+) to add items to this location.", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                            Text("Tap (+) or Scan Barcode to add items.", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
                         }
                     }
                 }

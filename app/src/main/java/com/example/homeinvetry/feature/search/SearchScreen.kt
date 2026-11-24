@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
@@ -17,11 +18,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.homeinvetry.core.ui.StatusBadge
-import com.example.homeinvetry.data.sample.*
+import com.example.homeinvetry.data.local.HomeStockDatabase
+import com.example.homeinvetry.data.local.entity.InventoryItemEntity
 import com.example.homeinvetry.ui.theme.*
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,8 +34,11 @@ fun SearchScreen(
     onNavigateToItemDetail: (itemId: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
-    val allItems = SampleDataProvider.sampleInventory
+
+    val db = remember(context) { HomeStockDatabase.getDatabase(context) }
+    val allItems by db.inventoryDao().getAllItems().collectAsState(initial = emptyList())
 
     val searchResults = if (searchQuery.isBlank()) {
         emptyList()
@@ -39,11 +46,19 @@ fun SearchScreen(
         allItems.filter { item ->
             item.name.contains(searchQuery, ignoreCase = true) ||
                     item.brand.contains(searchQuery, ignoreCase = true) ||
-                    item.category.displayName.contains(searchQuery, ignoreCase = true) ||
-                    item.storageLocation.displayName.contains(searchQuery, ignoreCase = true) ||
+                    item.category.contains(searchQuery, ignoreCase = true) ||
+                    item.storageLocation.contains(searchQuery, ignoreCase = true) ||
                     item.subLocation.contains(searchQuery, ignoreCase = true) ||
+                    item.barcode.contains(searchQuery, ignoreCase = true) ||
                     item.notes.contains(searchQuery, ignoreCase = true)
         }
+    }
+
+    val barcodeScanner = remember(context) {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .allowManualInput()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
     }
 
     Scaffold(
@@ -66,19 +81,36 @@ fun SearchScreen(
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Search Input Field
+            // Search Input Field with Barcode Scanner Icon
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Search item name, brand, location (e.g. Batteries)...") },
+                placeholder = { Text("Search item, brand, barcode, location...") },
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                 trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        }
+                        IconButton(onClick = {
+                            try {
+                                barcodeScanner.startScan()
+                                    .addOnSuccessListener { barcode ->
+                                        val raw = barcode.rawValue
+                                        if (!raw.isNullOrBlank()) {
+                                            searchQuery = raw
+                                        }
+                                    }
+                            } catch (e: Exception) {
+                                // Scanner fallback
+                            }
+                        }) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = PrimaryGreen)
                         }
                     }
                 },
@@ -95,9 +127,9 @@ fun SearchScreen(
             if (searchQuery.isBlank()) {
                 // Quick Search Suggestions
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Popular Searches", style = MaterialTheme.typography.titleMedium.copy(color = SecondaryText))
+                    Text("Popular Searches", style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                     Spacer(modifier = Modifier.height(10.dp))
-                    listOf("Batteries", "Rice", "Milk", "Detergent", "Pantry", "Fridge", "Surf Excel").forEach { query ->
+                    listOf("Rice", "Milk", "Detergent", "Cooking Oil", "Pantry", "Fridge", "Kitchen").forEach { query ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -106,7 +138,7 @@ fun SearchScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(Icons.Outlined.Search, contentDescription = null, tint = SecondaryText)
+                            Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(query, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
@@ -118,15 +150,15 @@ fun SearchScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No items matching '$searchQuery'", style = MaterialTheme.typography.bodyLarge.copy(color = SecondaryText))
+                    Text("No items matching '$searchQuery'", style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                 }
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(searchResults) { item ->
-                        SearchResultCard(item = item, onClick = { onNavigateToItemDetail(item.id) })
+                    items(searchResults, key = { it.id }) { item ->
+                        SearchResultEntityCard(item = item, onClick = { onNavigateToItemDetail(item.id) })
                     }
                 }
             }
@@ -135,7 +167,7 @@ fun SearchScreen(
 }
 
 @Composable
-fun SearchResultCard(item: InventoryItemSample, onClick: () -> Unit) {
+fun SearchResultEntityCard(item: InventoryItemEntity, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,19 +194,18 @@ fun SearchResultCard(item: InventoryItemSample, onClick: () -> Unit) {
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = item.name.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleLarge.copy(color = PrimaryGreenDark)
+                            text = item.iconEmoji,
+                            style = MaterialTheme.typography.titleLarge
                         )
                     }
                     Column {
-                        Text(text = item.name, style = MaterialTheme.typography.titleMedium)
+                        Text(text = item.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                         Text(
-                            text = "${item.brand} • Qty: ${item.quantity} ${item.unit}",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = SecondaryText)
+                            text = "${item.brand} • Qty: ${item.quantity.toInt()} ${item.unit}",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                     }
                 }
-                StatusBadge(status = item.status)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -193,7 +224,7 @@ fun SearchResultCard(item: InventoryItemSample, onClick: () -> Unit) {
                 ) {
                     Icon(Icons.Outlined.Place, contentDescription = null, tint = Color(0xFFB78103))
                     Text(
-                        text = "Location: ${item.storageLocation.displayName}${if (item.subLocation.isNotEmpty()) " → ${item.subLocation}" else ""}",
+                        text = "Location: ${item.storageLocation}${if (item.subLocation.isNotEmpty()) " → ${item.subLocation}" else ""}",
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFFB78103))
                     )
                 }

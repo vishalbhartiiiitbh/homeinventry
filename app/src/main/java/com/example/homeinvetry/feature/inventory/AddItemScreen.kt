@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,6 +23,8 @@ import com.example.homeinvetry.data.local.entity.InventoryItemEntity
 import com.example.homeinvetry.data.sample.*
 import com.example.homeinvetry.ui.theme.*
 import com.example.homeinvetry.ui.viewmodel.AddItemViewModel
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +35,8 @@ fun AddItemScreen(
     modifier: Modifier = Modifier,
     addItemViewModel: AddItemViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+
     var name by remember { mutableStateOf("") }
     var brand by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(ProductCategory.RICE) }
@@ -61,6 +66,13 @@ fun AddItemScreen(
     var expandedUnit by remember { mutableStateOf(false) }
 
     val unitsList = listOf("kg", "g", "litre", "ml", "pieces", "packets", "boxes", "bottles", "cans", "rolls", "sets")
+
+    val barcodeScanner = remember(context) {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .allowManualInput()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
+    }
 
     Scaffold(
         topBar = {
@@ -349,8 +361,20 @@ fun AddItemScreen(
                 label = { Text("Barcode") },
                 placeholder = { Text("8901234567890") },
                 trailingIcon = {
-                    IconButton(onClick = { /* Scan Barcode */ }) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode")
+                    IconButton(onClick = {
+                        try {
+                            barcodeScanner.startScan()
+                                .addOnSuccessListener { barcodeObj ->
+                                    val raw = barcodeObj.rawValue
+                                    if (!raw.isNullOrBlank()) {
+                                        barcode = raw
+                                    }
+                                }
+                        } catch (e: Exception) {
+                            // Scanner fallback
+                        }
+                    }) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = PrimaryGreen)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
