@@ -23,6 +23,7 @@ import androidx.navigation.navArgument
 import com.example.homeinvetry.core.navigation.HomeStockBottomBar
 import com.example.homeinvetry.core.navigation.Screen
 import com.example.homeinvetry.core.navigation.bottomNavScreens
+import com.example.homeinvetry.feature.analytics.AnalyticsScreen
 import com.example.homeinvetry.feature.dashboard.HomeScreen
 import com.example.homeinvetry.feature.inventory.AddItemScreen
 import com.example.homeinvetry.feature.inventory.InventoryScreen
@@ -129,7 +130,9 @@ fun HomeStockApp() {
 
             // 5. Settings & Config
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(
+                    onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) }
+                )
             }
 
             // Sub-screen: Add Item
@@ -172,6 +175,13 @@ fun HomeStockApp() {
                     onNavigateToItemDetail = { itemId ->
                         navController.navigate(Screen.ItemDetail.createRoute(itemId))
                     }
+                )
+            }
+
+            // Sub-screen: Household Analytics
+            composable(Screen.Analytics.route) {
+                AnalyticsScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }

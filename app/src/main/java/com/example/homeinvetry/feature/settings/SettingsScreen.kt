@@ -23,6 +23,7 @@ import com.example.homeinvetry.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onNavigateToAnalytics: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -117,6 +118,17 @@ fun SettingsScreen(
             }
 
             // Settings Menu Items
+            item {
+                SettingsMenuRow(
+                    title = "Household Analytics & Insights",
+                    subtitle = "Monthly spending & category breakdown",
+                    icon = Icons.Outlined.BarChart,
+                    iconBgColor = LightGreen,
+                    iconTint = PrimaryGreen,
+                    onClick = onNavigateToAnalytics
+                )
+            }
+
             item {
                 SettingsMenuRow(
                     title = "Backup & Synchronization",
