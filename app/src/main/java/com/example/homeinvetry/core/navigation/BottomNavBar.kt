@@ -3,7 +3,6 @@ package com.example.homeinvetry.core.navigation
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -19,11 +18,11 @@ fun HomeStockBottomBar(navController: NavController) {
         contentColor = PrimaryGreen
     ) {
         bottomNavScreens.forEach { screen ->
-            val selected = currentRoute == screen.route
+            val selected = currentRoute == screen.route || currentRoute?.startsWith("${screen.route}?") == true
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    if (currentRoute != screen.route) {
+                    if (!selected) {
                         navController.navigate(screen.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true

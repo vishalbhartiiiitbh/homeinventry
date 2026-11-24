@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,27 +29,56 @@ import com.example.homeinvetry.ui.theme.*
 @Composable
 fun InventoryScreen(
     initialFilter: String? = null,
-    onNavigateToAddItem: () -> Unit,
+    onNavigateToAddItem: (selectedLocationName: String) -> Unit,
     onNavigateToItemDetail: (itemId: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val itemsList = SampleDataProvider.sampleInventory
+    val allItems = remember { SampleDataProvider.sampleInventory.toMutableStateList() }
+    val customLocationsList = remember { mutableStateListOf("Pantry", "Kitchen", "Fridge", "Freezer", "Bathroom", "Store Room") }
+
+    var selectedLocationName by remember { mutableStateOf(initialFilter ?: "Pantry") }
+    var showLocationSelectorDialog by remember { mutableStateOf(false) }
+    var showCreateLocationDialog by remember { mutableStateOf(false) }
+    var newLocationInput by remember { mutableStateOf("") }
+
+    // Deletion states
+    var itemToDelete by remember { mutableStateOf<InventoryItemSample?>(null) }
+    var locationToDelete by remember { mutableStateOf<String?>(null) }
+
+    // Filter items based on selected location
+    val filteredItems = if (selectedLocationName == "All" || selectedLocationName.isBlank()) {
+        allItems
+    } else {
+        allItems.filter {
+            it.storageLocation.displayName.equals(selectedLocationName, ignoreCase = true) ||
+                    selectedLocationName.contains(it.storageLocation.name, ignoreCase = true)
+        }
+    }
+
+    val displayedLocationTitle = if (selectedLocationName == "All") "All Inventories" else selectedLocationName
+    val displayedItemCount = if (selectedLocationName == "All") allItems.size else filteredItems.size
+
+    val selectedLocationIcon = when (selectedLocationName.lowercase()) {
+        "pantry" -> Icons.Default.Kitchen
+        "kitchen" -> Icons.Default.Countertops
+        "fridge" -> Icons.Default.AcUnit
+        "freezer" -> Icons.Default.AcUnit
+        "bathroom" -> Icons.Default.Bathtub
+        "store room" -> Icons.Default.Inventory2
+        "all" -> Icons.Default.Category
+        else -> Icons.Default.Place
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Inventory", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
-                navigationIcon = {
-                    IconButton(onClick = { /* Back */ }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 actions = {
                     IconButton(onClick = { /* Search */ }) {
                         Icon(Icons.Outlined.Search, contentDescription = "Search")
                     }
-                    IconButton(onClick = { /* More options */ }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                    IconButton(onClick = { showLocationSelectorDialog = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Switch Inventory Location")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -55,13 +86,13 @@ fun InventoryScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onNavigateToAddItem,
+                onClick = { onNavigateToAddItem(selectedLocationName) },
                 containerColor = PrimaryGreen,
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Item", modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Add, contentDescription = "Add Item to $displayedLocationTitle", modifier = Modifier.size(28.dp))
             }
         },
         modifier = modifier.fillMaxSize()
@@ -74,12 +105,14 @@ fun InventoryScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Selected Location Banner Card
+            // Selected Location Banner Card (Interactive!)
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { showLocationSelectorDialog = true },
                     colors = CardDefaults.cardColors(containerColor = LightYellow),
-                    shape = RoundedCornerShape(20.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Row(
@@ -101,23 +134,34 @@ fun InventoryScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Kitchen,
-                                    contentDescription = "Pantry",
+                                    imageVector = selectedLocationIcon,
+                                    contentDescription = displayedLocationTitle,
                                     tint = PrimaryGreen,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
                             Column {
-                                Text(
-                                    text = "Pantry",
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 22.sp
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = displayedLocationTitle,
+                                        style = MaterialTheme.typography.headlineMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 22.sp
+                                        )
                                     )
-                                )
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Switch Location",
+                                        tint = PrimaryGreenDark,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                                 Text(
-                                    text = "35 Items",
-                                    style = MaterialTheme.typography.bodyMedium.copy(color = SecondaryText)
+                                    text = "$displayedItemCount Items • Tap to switch or add new",
+                                    style = MaterialTheme.typography.bodyMedium.copy(color = SecondaryText, fontSize = 12.sp)
                                 )
                             }
                         }
@@ -162,15 +206,20 @@ fun InventoryScreen(
                         }
                     }
 
-                    // 4 Stat Circles
+                    // 4 Stat Circles for filtered items
+                    val inStockCount = filteredItems.count { it.status == StockStatus.FRESH }
+                    val lowStockCount = filteredItems.count { it.status == StockStatus.LOW_STOCK }
+                    val expiringCount = filteredItems.count { it.status == StockStatus.EXPIRING_SOON }
+                    val expiredCount = filteredItems.count { it.status == StockStatus.EXPIRED }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        QuickStatCircle(count = "28", label = "In Stock", color = PrimaryGreen, bgColor = LightGreen, modifier = Modifier.weight(1f))
-                        QuickStatCircle(count = "4", label = "Low Stock", color = Color(0xFFE67E22), bgColor = LightYellow, modifier = Modifier.weight(1f))
-                        QuickStatCircle(count = "2", label = "Expiring", color = Color(0xFFE74C3C), bgColor = LightRed, modifier = Modifier.weight(1f))
-                        QuickStatCircle(count = "1", label = "Expired", color = SecondaryText, bgColor = Color(0xFFECEFF1), modifier = Modifier.weight(1f))
+                        QuickStatCircle(count = "$inStockCount", label = "In Stock", color = PrimaryGreen, bgColor = LightGreen, modifier = Modifier.weight(1f))
+                        QuickStatCircle(count = "$lowStockCount", label = "Low Stock", color = Color(0xFFE67E22), bgColor = LightYellow, modifier = Modifier.weight(1f))
+                        QuickStatCircle(count = "$expiringCount", label = "Expiring", color = Color(0xFFE74C3C), bgColor = LightRed, modifier = Modifier.weight(1f))
+                        QuickStatCircle(count = "$expiredCount", label = "Expired", color = SecondaryText, bgColor = Color(0xFFECEFF1), modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -178,19 +227,237 @@ fun InventoryScreen(
             // Items List Title
             item {
                 Text(
-                    text = "Items in Pantry",
+                    text = "Items in $displayedLocationTitle",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
 
             // Product Cards List
-            items(itemsList) { item ->
-                PantryItemRow(
-                    item = item,
-                    onClick = { onNavigateToItemDetail(item.id) }
-                )
+            if (filteredItems.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Inbox,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = SecondaryText
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("No items in $displayedLocationTitle", style = MaterialTheme.typography.titleMedium)
+                            Text("Tap (+) to add items to this location.", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                        }
+                    }
+                }
+            } else {
+                items(filteredItems) { item ->
+                    PantryItemRow(
+                        item = item,
+                        onClick = { onNavigateToItemDetail(item.id) },
+                        onDeleteItem = { itemToDelete = item }
+                    )
+                }
             }
         }
+    }
+
+    // Storage Location Selector Dialog
+    if (showLocationSelectorDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationSelectorDialog = false },
+            title = {
+                Text("Select Inventory Location", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Choose which household storage location to view or manage:",
+                        style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // All Inventories Option
+                    LocationOptionRow(
+                        name = "All Inventories",
+                        itemCount = allItems.size,
+                        isSelected = selectedLocationName == "All",
+                        icon = Icons.Default.Category,
+                        onClick = {
+                            selectedLocationName = "All"
+                            showLocationSelectorDialog = false
+                        }
+                    )
+
+                    HorizontalDivider()
+
+                    // Storage Locations List
+                    customLocationsList.forEach { locName ->
+                        val count = allItems.count {
+                            it.storageLocation.displayName.equals(locName, ignoreCase = true) ||
+                                    locName.contains(it.storageLocation.name, ignoreCase = true)
+                        }
+                        val locIcon = when (locName.lowercase()) {
+                            "pantry" -> Icons.Default.Kitchen
+                            "kitchen" -> Icons.Default.Countertops
+                            "fridge" -> Icons.Default.AcUnit
+                            "freezer" -> Icons.Default.AcUnit
+                            "bathroom" -> Icons.Default.Bathtub
+                            "store room" -> Icons.Default.Inventory2
+                            else -> Icons.Default.Place
+                        }
+
+                        LocationOptionRow(
+                            name = locName,
+                            itemCount = count,
+                            isSelected = selectedLocationName.equals(locName, ignoreCase = true),
+                            icon = locIcon,
+                            onClick = {
+                                selectedLocationName = locName
+                                showLocationSelectorDialog = false
+                            },
+                            onDeleteLocation = {
+                                locationToDelete = locName
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Create New Location Button inside Dialog
+                    OutlinedButton(
+                        onClick = {
+                            showLocationSelectorDialog = false
+                            showCreateLocationDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryGreen)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("+ Create New Storage Location", color = PrimaryGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showLocationSelectorDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Create New Location Dialog
+    if (showCreateLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateLocationDialog = false },
+            title = { Text("Create New Storage Location") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Enter a name for your new household inventory location (e.g. Garage, Wine Cellar, Balcony).", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = newLocationInput,
+                        onValueChange = { newLocationInput = it },
+                        label = { Text("Location Name *") },
+                        placeholder = { Text("e.g. Garage Shelf") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newLocationInput.isNotBlank()) {
+                            val createdName = newLocationInput.trim()
+                            if (!customLocationsList.contains(createdName)) {
+                                customLocationsList.add(createdName)
+                            }
+                            selectedLocationName = createdName
+                            newLocationInput = ""
+                            showCreateLocationDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                ) {
+                    Text("Create Location")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateLocationDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Item Confirmation Dialog
+    itemToDelete?.let { targetItem ->
+        AlertDialog(
+            onDismissRequest = { itemToDelete = null },
+            title = { Text("Delete '${targetItem.name}'?") },
+            text = {
+                Text(
+                    "Are you sure you want to delete this inventory item? All associated stock batches and records will be removed from your household database.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        allItems.removeIf { it.id == targetItem.id }
+                        itemToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B))
+                ) {
+                    Text("Delete Item")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Storage Location Confirmation Dialog
+    locationToDelete?.let { locName ->
+        AlertDialog(
+            onDismissRequest = { locationToDelete = null },
+            title = { Text("Delete Location '$locName'?") },
+            text = {
+                Text(
+                    "Are you sure you want to delete this storage location? Any inventory items assigned to $locName will remain in your database.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        customLocationsList.remove(locName)
+                        if (selectedLocationName.equals(locName, ignoreCase = true)) {
+                            selectedLocationName = "All"
+                        }
+                        locationToDelete = null
+                        showLocationSelectorDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B))
+                ) {
+                    Text("Delete Location")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { locationToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -231,10 +498,74 @@ fun QuickStatCircle(
 }
 
 @Composable
+fun LocationOptionRow(
+    name: String,
+    itemCount: Int,
+    isSelected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    onDeleteLocation: (() -> Unit)? = null
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() },
+        color = if (isSelected) LightGreen else MaterialTheme.colorScheme.surface
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) PrimaryGreenDark else SecondaryText,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) PrimaryGreenDark else MainText
+                    )
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "$itemCount items",
+                    style = MaterialTheme.typography.labelMedium.copy(color = SecondaryText)
+                )
+                if (onDeleteLocation != null && name != "All Inventories") {
+                    IconButton(onClick = onDeleteLocation, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = "Delete Location",
+                            tint = Color(0xFFC0392B),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun PantryItemRow(
     item: InventoryItemSample,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDeleteItem: () -> Unit
 ) {
+    var expandedMenu by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -298,7 +629,7 @@ fun PantryItemRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Dropdown Pill
+                // Quantity Dropdown Pill
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = LightGreen,
@@ -325,13 +656,47 @@ fun PantryItemRow(
                     }
                 }
 
-                IconButton(onClick = { /* Menu */ }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More",
-                        tint = SecondaryText,
-                        modifier = Modifier.size(20.dp)
-                    )
+                // 3-Dots Action Menu Button
+                Box {
+                    IconButton(onClick = { expandedMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More Options",
+                            tint = SecondaryText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedMenu,
+                        onDismissRequest = { expandedMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Text("View / Edit Details")
+                                }
+                            },
+                            onClick = {
+                                expandedMenu = false
+                                onClick()
+                            }
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = Color(0xFFC0392B), modifier = Modifier.size(18.dp))
+                                    Text("Delete Item", color = Color(0xFFC0392B), fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            onClick = {
+                                expandedMenu = false
+                                onDeleteItem()
+                            }
+                        )
+                    }
                 }
             }
         }

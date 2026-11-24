@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
@@ -23,6 +24,7 @@ import com.example.homeinvetry.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddItemScreen(
+    initialLocationName: String? = null,
     onNavigateBack: () -> Unit,
     onItemSaved: (InventoryItemSample) -> Unit,
     modifier: Modifier = Modifier
@@ -30,14 +32,18 @@ fun AddItemScreen(
     var name by remember { mutableStateOf("") }
     var brand by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(ProductCategory.RICE) }
-    var selectedLocation by remember { mutableStateOf(StorageLocationType.PANTRY) }
+
+    val locationsList = remember { mutableStateListOf("Pantry", "Kitchen", "Fridge", "Freezer", "Bathroom", "Store Room") }
+    var selectedLocationName by remember { mutableStateOf(initialLocationName ?: "Pantry") }
+    var showCreateLocationDialog by remember { mutableStateOf(false) }
+    var newLocationInput by remember { mutableStateOf("") }
+
     var subLocation by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("1.0") }
     var unit by remember { mutableStateOf("kg") }
     var minStock by remember { mutableStateOf("1.0") }
     var bufferStock by remember { mutableStateOf("2.0") }
     var purchasePrice by remember { mutableStateOf("0.00") }
-    var purchaseDate by remember { mutableStateOf("2025-03-01") }
     var expiryDate by remember { mutableStateOf("2026-03-01") }
     var notes by remember { mutableStateOf("") }
     var barcode by remember { mutableStateOf("") }
@@ -82,11 +88,15 @@ fun AddItemScreen(
                                 val minVal = minStock.toDoubleOrNull() ?: 1.0
                                 val bufVal = bufferStock.toDoubleOrNull() ?: (minVal * 1.5)
                                 val statusVal = if (qtyVal <= minVal) StockStatus.LOW_STOCK else StockStatus.FRESH
+                                val targetLoc = StorageLocationType.entries.firstOrNull {
+                                    it.displayName.equals(selectedLocationName, ignoreCase = true)
+                                } ?: StorageLocationType.CUSTOM
+
                                 val newItem = InventoryItemSample(
                                     name = name.trim(),
                                     brand = brand.trim(),
                                     category = selectedCategory,
-                                    storageLocation = selectedLocation,
+                                    storageLocation = targetLoc,
                                     subLocation = subLocation.trim(),
                                     quantity = qtyVal,
                                     minStock = minVal,
@@ -185,10 +195,10 @@ fun AddItemScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     OutlinedTextField(
-                        value = selectedLocation.displayName,
+                        value = selectedLocationName,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Storage Location") },
+                        label = { Text("Select Inventory") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedLocation) },
                         modifier = Modifier.menuAnchor(),
                         shape = RoundedCornerShape(12.dp)
@@ -197,15 +207,29 @@ fun AddItemScreen(
                         expanded = expandedLocation,
                         onDismissRequest = { expandedLocation = false }
                     ) {
-                        StorageLocationType.entries.forEach { loc ->
+                        locationsList.forEach { loc ->
                             DropdownMenuItem(
-                                text = { Text(loc.displayName) },
+                                text = { Text(loc) },
                                 onClick = {
-                                    selectedLocation = loc
+                                    selectedLocationName = loc
                                     expandedLocation = false
                                 }
                             )
                         }
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryGreen, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("+ New Location...", color = PrimaryGreen, fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            onClick = {
+                                expandedLocation = false
+                                showCreateLocationDialog = true
+                            }
+                        )
                     }
                 }
             }
@@ -220,7 +244,7 @@ fun AddItemScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
-            Divider()
+            HorizontalDivider()
 
             // Quantity & Stock Section
             Text("Stock & Quantity Management", style = MaterialTheme.typography.titleMedium.copy(color = PrimaryGreen))
@@ -289,7 +313,7 @@ fun AddItemScreen(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Pricing & Dates Section
             Text("Price & Dates", style = MaterialTheme.typography.titleMedium.copy(color = PrimaryGreen))
@@ -338,6 +362,50 @@ fun AddItemScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // Create New Location Dialog
+        if (showCreateLocationDialog) {
+            AlertDialog(
+                onDismissRequest = { showCreateLocationDialog = false },
+                title = { Text("Create New Storage Location") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Type a name for the new inventory location:", style = MaterialTheme.typography.bodySmall)
+                        OutlinedTextField(
+                            value = newLocationInput,
+                            onValueChange = { newLocationInput = it },
+                            label = { Text("Location Name *") },
+                            placeholder = { Text("e.g. Wine Cellar") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (newLocationInput.isNotBlank()) {
+                                val createdName = newLocationInput.trim()
+                                if (!locationsList.contains(createdName)) {
+                                    locationsList.add(createdName)
+                                }
+                                selectedLocationName = createdName
+                                newLocationInput = ""
+                                showCreateLocationDialog = false
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                    ) {
+                        Text("Create & Select")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCreateLocationDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }

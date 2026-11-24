@@ -47,7 +47,9 @@ fun HomeStockApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val shouldShowBottomBar = bottomNavScreens.any { it.route == currentRoute }
+    val shouldShowBottomBar = bottomNavScreens.any { screen ->
+        currentRoute == screen.route || currentRoute?.startsWith("${screen.route}?") == true
+    }
 
     Scaffold(
         bottomBar = {
@@ -90,7 +92,9 @@ fun HomeStockApp() {
                 val filter = backStackEntry.arguments?.getString("filter")
                 InventoryScreen(
                     initialFilter = filter,
-                    onNavigateToAddItem = { navController.navigate(Screen.AddItem.route) },
+                    onNavigateToAddItem = { selectedLoc ->
+                        navController.navigate("${Screen.AddItem.route}?location=${selectedLoc}")
+                    },
                     onNavigateToItemDetail = { itemId ->
                         navController.navigate(Screen.ItemDetail.createRoute(itemId))
                     }
@@ -117,11 +121,19 @@ fun HomeStockApp() {
             }
 
             // Sub-screen: Add Item
-            composable(Screen.AddItem.route) {
+            composable(
+                route = "${Screen.AddItem.route}?location={location}",
+                arguments = listOf(navArgument("location") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) { backStackEntry ->
+                val initialLocation = backStackEntry.arguments?.getString("location")
                 AddItemScreen(
+                    initialLocationName = initialLocation,
                     onNavigateBack = { navController.popBackStack() },
                     onItemSaved = { newItem ->
-                        // Navigates back to inventory
                         navController.popBackStack()
                     }
                 )
