@@ -30,14 +30,14 @@ enum class ProductCategory(val displayName: String, val isFood: Boolean) {
     OTHER_HOUSEHOLD("Other Household", false)
 }
 
-enum class StorageLocationType(val displayName: String, val iconName: String) {
-    PANTRY("Pantry", "shelves"),
-    KITCHEN("Kitchen", "counter"),
-    FRIDGE("Fridge", "ac_unit"),
-    FREEZER("Freezer", "kitchen"),
-    BATHROOM("Bathroom", "bathtub"),
-    STORE_ROOM("Store Room", "inventory_2"),
-    CUSTOM("Custom Location", "place")
+enum class StorageLocationType(val displayName: String, val itemCount: Int) {
+    PANTRY("Pantry", 35),
+    KITCHEN("Kitchen", 42),
+    FRIDGE("Fridge", 14),
+    FREEZER("Freezer", 8),
+    BATHROOM("Bathroom", 12),
+    STORE_ROOM("Store Room", 17),
+    CUSTOM("Custom Location", 5)
 }
 
 enum class StockStatus {
@@ -61,33 +61,37 @@ data class StockBatchSample(
 data class InventoryItemSample(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val brand: String,
+    val brand: String = "",
     val category: ProductCategory,
     val storageLocation: StorageLocationType,
     val subLocation: String = "",
     val quantity: Double,
-    val minStock: Double,
+    val minStock: Double = 1.0,
     val bufferStock: Double = minStock * 1.5,
     val unit: String,
+    val batchCount: Int = 1,
     val expiryDate: String,
-    val purchasePrice: Double,
-    val status: StockStatus,
+    val purchasePrice: Double = 0.0,
+    val status: StockStatus = StockStatus.FRESH,
     val batches: List<StockBatchSample> = emptyList(),
     val notes: String = "",
-    val barcode: String = ""
+    val barcode: String = "",
+    val iconEmoji: String = "📦"
 )
 
 data class ShoppingItemSample(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val category: ProductCategory,
-    val requiredQuantity: Double,
-    val unit: String,
-    val estimatedPrice: Double,
+    val category: ProductCategory = ProductCategory.OTHER_FOOD,
+    val requiredQuantity: Double = 1.0,
+    val unit: String = "kg",
+    val estimatedPrice: Double = 0.0,
     val isPurchased: Boolean = false,
     val isAutoSuggested: Boolean = false,
+    val isLowStockAlert: Boolean = false,
     val brand: String = "",
-    val storageLocation: StorageLocationType = StorageLocationType.PANTRY
+    val storageLocation: StorageLocationType = StorageLocationType.PANTRY,
+    val iconEmoji: String = "🛒"
 )
 
 enum class ReminderType {
@@ -105,223 +109,195 @@ data class ReminderSample(
     val dueDate: String,
     val priority: String = "Medium",
     val isCompleted: Boolean = false,
-    val relatedItemName: String? = null
+    val relatedItemName: String? = null,
+    val actionLabel: String = "View",
+    val iconEmoji: String = "🔔"
 )
 
 object SampleDataProvider {
     val sampleInventory = listOf(
         InventoryItemSample(
             id = "1",
-            name = "Basmati Rice",
+            name = "Rice (Basmati)",
             brand = "India Gate",
             category = ProductCategory.RICE,
             storageLocation = StorageLocationType.PANTRY,
-            subLocation = "Shelf 1 - Container A",
-            quantity = 2.0,
+            subLocation = "Container A",
+            quantity = 15.0,
             minStock = 5.0,
-            bufferStock = 8.0,
             unit = "kg",
-            expiryDate = "2026-12-20",
-            purchasePrice = 14.50,
-            status = StockStatus.LOW_STOCK,
-            notes = "Premium long grain basmati rice",
-            batches = listOf(
-                StockBatchSample(batchNumber = "BATCH-101", quantity = 2.0, unit = "kg", purchaseDate = "2025-01-15", expiryDate = "2026-12-20")
-            )
+            batchCount = 2,
+            expiryDate = "20 Dec 2026",
+            status = StockStatus.FRESH,
+            iconEmoji = "🍚"
         ),
         InventoryItemSample(
             id = "2",
-            name = "Whole Milk",
-            brand = "Amul",
-            category = ProductCategory.MILK,
-            storageLocation = StorageLocationType.FRIDGE,
-            subLocation = "Top Shelf",
-            quantity = 1.5,
-            minStock = 1.0,
-            bufferStock = 2.0,
-            unit = "litre",
-            expiryDate = "2025-03-02",
-            purchasePrice = 2.80,
-            status = StockStatus.EXPIRING_SOON,
-            notes = "Use for tea and breakfast cereal",
-            batches = listOf(
-                StockBatchSample(batchNumber = "BATCH-204", quantity = 1.5, unit = "litre", purchaseDate = "2025-02-25", expiryDate = "2025-03-02")
-            )
+            name = "Wheat Flour",
+            brand = "Aashirvaad",
+            category = ProductCategory.WHEAT_FLOUR,
+            storageLocation = StorageLocationType.PANTRY,
+            subLocation = "Shelf 1",
+            quantity = 5.0,
+            minStock = 2.0,
+            unit = "kg",
+            batchCount = 1,
+            expiryDate = "15 Jan 2027",
+            status = StockStatus.FRESH,
+            iconEmoji = "🌾"
         ),
         InventoryItemSample(
             id = "3",
-            name = "Liquid Detergent",
-            brand = "Surf Excel",
-            category = ProductCategory.DETERGENTS,
-            storageLocation = StorageLocationType.BATHROOM,
-            subLocation = "Cabinet Under Sink",
-            quantity = 2.5,
+            name = "Sugar",
+            brand = "Madhur",
+            category = ProductCategory.SUGAR,
+            storageLocation = StorageLocationType.PANTRY,
+            subLocation = "Shelf 2",
+            quantity = 2.0,
             minStock = 1.0,
-            bufferStock = 2.0,
-            unit = "litre",
-            expiryDate = "2027-05-10",
-            purchasePrice = 12.00,
+            unit = "kg",
+            batchCount = 1,
+            expiryDate = "10 Mar 2027",
             status = StockStatus.FRESH,
-            notes = "Front load washing machine refill"
+            iconEmoji = "🍬"
         ),
         InventoryItemSample(
             id = "4",
-            name = "AA Alkaline Batteries",
-            brand = "Duracell",
-            category = ProductCategory.BATTERIES,
-            storageLocation = StorageLocationType.STORE_ROOM,
-            subLocation = "Shelf 2 → Box 4",
-            quantity = 8.0,
-            minStock = 4.0,
-            bufferStock = 6.0,
-            unit = "pieces",
-            expiryDate = "2029-01-01",
-            purchasePrice = 9.99,
+            name = "Milk Powder",
+            brand = "Nestle",
+            category = ProductCategory.MILK,
+            storageLocation = StorageLocationType.PANTRY,
+            subLocation = "Cabinet 3",
+            quantity = 500.0,
+            minStock = 200.0,
+            unit = "g",
+            batchCount = 1,
+            expiryDate = "30 Nov 2026",
             status = StockStatus.FRESH,
-            notes = "For remote controls and wall clocks"
+            iconEmoji = "🥛"
         ),
         InventoryItemSample(
             id = "5",
-            name = "Extra Virgin Olive Oil",
-            brand = "Borges",
+            name = "Cooking Oil",
+            brand = "Fortune",
             category = ProductCategory.COOKING_OIL,
             storageLocation = StorageLocationType.KITCHEN,
-            subLocation = "Spice Rack - Right",
-            quantity = 0.4,
-            minStock = 1.0,
-            bufferStock = 2.0,
-            unit = "litre",
-            expiryDate = "2026-08-15",
-            purchasePrice = 18.50,
+            quantity = 1.0,
+            minStock = 2.0,
+            unit = "L",
+            expiryDate = "12 Oct 2026",
             status = StockStatus.LOW_STOCK,
-            notes = "Salad dressing & light sautéing"
+            iconEmoji = "🛢️"
         ),
         InventoryItemSample(
             id = "6",
-            name = "Greek Yogurt",
-            brand = "Chobani",
-            category = ProductCategory.OTHER_FOOD,
-            storageLocation = StorageLocationType.FRIDGE,
-            subLocation = "Door Bin",
+            name = "Detergent",
+            brand = "Surf Excel",
+            category = ProductCategory.DETERGENTS,
+            storageLocation = StorageLocationType.BATHROOM,
             quantity = 1.0,
             minStock = 2.0,
-            bufferStock = 4.0,
-            unit = "packets",
-            expiryDate = "2025-02-28",
-            purchasePrice = 4.20,
-            status = StockStatus.EXPIRED,
-            notes = "Plain unsweetened 500g"
-        ),
-        InventoryItemSample(
-            id = "7",
-            name = "Dishwashing Pods",
-            brand = "Finish",
-            category = ProductCategory.CLEANING_SUPPLIES,
-            storageLocation = StorageLocationType.KITCHEN,
-            subLocation = "Under Sink",
-            quantity = 45.0,
-            minStock = 15.0,
-            bufferStock = 30.0,
-            unit = "pieces",
-            expiryDate = "2027-01-01",
-            purchasePrice = 22.00,
-            status = StockStatus.FRESH,
-            notes = "Ultimate All-in-1 pack"
+            unit = "Pack",
+            expiryDate = "01 Jan 2028",
+            status = StockStatus.LOW_STOCK,
+            iconEmoji = "🧴"
         )
     )
 
     val sampleShoppingList = listOf(
         ShoppingItemSample(
             id = "s1",
-            name = "Basmati Rice",
-            category = ProductCategory.RICE,
-            requiredQuantity = 5.0,
-            unit = "kg",
-            estimatedPrice = 35.00,
+            name = "Cooking Oil",
+            category = ProductCategory.COOKING_OIL,
+            requiredQuantity = 1.0,
+            unit = "L",
             isPurchased = false,
-            isAutoSuggested = true,
-            brand = "India Gate",
-            storageLocation = StorageLocationType.PANTRY
+            isLowStockAlert = true,
+            iconEmoji = "🛢️"
         ),
         ShoppingItemSample(
             id = "s2",
-            name = "Olive Oil 1L",
-            category = ProductCategory.COOKING_OIL,
-            requiredQuantity = 2.0,
-            unit = "litre",
-            estimatedPrice = 36.00,
+            name = "Tomatoes",
+            category = ProductCategory.VEGETABLES,
+            requiredQuantity = 1.0,
+            unit = "kg",
             isPurchased = false,
-            isAutoSuggested = true,
-            brand = "Borges",
-            storageLocation = StorageLocationType.KITCHEN
+            iconEmoji = "🍅"
         ),
         ShoppingItemSample(
             id = "s3",
-            name = "Hand Soap Refill",
-            category = ProductCategory.SOAP,
+            name = "Onions",
+            category = ProductCategory.VEGETABLES,
             requiredQuantity = 2.0,
-            unit = "bottles",
-            estimatedPrice = 8.50,
-            isPurchased = true,
-            isAutoSuggested = false,
-            brand = "Dettol",
-            storageLocation = StorageLocationType.BATHROOM
+            unit = "kg",
+            isPurchased = false,
+            iconEmoji = "🧅"
         ),
         ShoppingItemSample(
             id = "s4",
-            name = "Fresh Eggs (12-pack)",
+            name = "Detergent",
+            category = ProductCategory.DETERGENTS,
+            requiredQuantity = 1.0,
+            unit = "Pack",
+            isPurchased = false,
+            iconEmoji = "🧴"
+        ),
+        ShoppingItemSample(
+            id = "s5",
+            name = "Milk",
+            category = ProductCategory.MILK,
+            requiredQuantity = 1.0,
+            unit = "L",
+            isPurchased = true,
+            iconEmoji = "🥛"
+        ),
+        ShoppingItemSample(
+            id = "s6",
+            name = "Bread",
             category = ProductCategory.OTHER_FOOD,
             requiredQuantity = 1.0,
-            unit = "boxes",
-            estimatedPrice = 4.50,
-            isPurchased = false,
-            isAutoSuggested = false,
-            storageLocation = StorageLocationType.FRIDGE
+            unit = "Pack",
+            isPurchased = true,
+            iconEmoji = "🍞"
         )
     )
 
     val sampleReminders = listOf(
         ReminderSample(
             id = "r1",
-            title = "Whole Milk Expiring Soon",
-            description = "Milk in Fridge expires tomorrow (2025-03-02). Use for cooking or baking.",
+            title = "Milk is expiring soon!",
+            description = "Expires in 2 days • 1 L",
             type = ReminderType.EXPIRY,
-            dueDate = "Tomorrow",
-            priority = "High",
-            relatedItemName = "Whole Milk"
+            dueDate = "In 2 days",
+            actionLabel = "View",
+            iconEmoji = "🥛"
         ),
         ReminderSample(
             id = "r2",
-            title = "Refill Basmati Rice",
-            description = "Current stock (2 kg) is below minimum required stock (5 kg).",
+            title = "Detergent is low",
+            description = "Only 1 pack left",
             type = ReminderType.REFILL,
             dueDate = "Today",
-            priority = "High",
-            relatedItemName = "Basmati Rice"
+            actionLabel = "Refill",
+            iconEmoji = "🧴"
         ),
         ReminderSample(
             id = "r3",
             title = "Clean Water Filter",
-            description = "Quarterly maintenance service for RO water purifier filter replacement.",
+            description = "Due in 7 days",
             type = ReminderType.MAINTENANCE,
-            dueDate = "In 3 days",
-            priority = "Medium"
+            dueDate = "In 7 days",
+            actionLabel = "View",
+            iconEmoji = "🚰"
         ),
         ReminderSample(
             id = "r4",
-            title = "Refill Gas Cylinder",
-            description = "Check pressure gauge and book LPG refill tank online.",
+            title = "Pay Electricity Bill",
+            description = "Due on 30 Nov 2026",
             type = ReminderType.TASK,
-            dueDate = "Next Monday",
-            priority = "High"
-        ),
-        ReminderSample(
-            id = "r5",
-            title = "Clean Fridge Shelves",
-            description = "Monthly deep cleaning of refrigerator glass drawers and compartments.",
-            type = ReminderType.MAINTENANCE,
-            dueDate = "This Weekend",
-            priority = "Low"
+            dueDate = "30 Nov 2026",
+            actionLabel = "View",
+            iconEmoji = "🔌"
         )
     )
 }
