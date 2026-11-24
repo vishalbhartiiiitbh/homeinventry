@@ -24,10 +24,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.example.homeinvetry.core.navigation.HomeStockBottomBar
 import com.example.homeinvetry.core.navigation.Screen
 import com.example.homeinvetry.core.navigation.bottomNavScreens
-import com.example.homeinvetry.core.notifications.NotificationHelper
+import com.example.homeinvetry.core.notifications.ReminderWorker
 import com.example.homeinvetry.feature.analytics.AnalyticsScreen
 import com.example.homeinvetry.feature.dashboard.HomeScreen
 import com.example.homeinvetry.feature.inventory.AddItemScreen
@@ -39,6 +42,7 @@ import com.example.homeinvetry.feature.settings.SettingsScreen
 import com.example.homeinvetry.feature.shopping.ShoppingScreen
 import com.example.homeinvetry.ui.theme.HomeStockTheme
 import com.example.homeinvetry.ui.viewmodel.HomeStockViewModelFactory
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,28 +63,22 @@ fun HomeStockApp() {
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            NotificationHelper.showNotification(
-                context,
-                1001,
-                "HomeStock Notifications Enabled 🔔",
-                "You will receive live device alerts for low stock, expiries & tasks."
-            )
-        }
-    }
+    ) { _ -> }
 
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            NotificationHelper.showNotification(
-                context,
-                1001,
-                "Welcome to HomeStock 📦",
-                "Your household inventory is active and being monitored."
-            )
         }
+
+        // Background WorkManager scheduling (runs even when app is closed!)
+        val reminderWorkRequest = PeriodicWorkRequestBuilder<ReminderWorker>(8, TimeUnit.HOURS)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "HomeStockReminderWorker",
+            ExistingPeriodicWorkPolicy.KEEP,
+            reminderWorkRequest
+        )
     }
 
     val navController = rememberNavController()

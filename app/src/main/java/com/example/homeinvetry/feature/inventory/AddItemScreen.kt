@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -156,47 +155,49 @@ fun AddItemScreen(
             OutlinedTextField(
                 value = brand,
                 onValueChange = { brand = it },
-                label = { Text("Brand") },
+                label = { Text("Brand / Manufacturer") },
                 placeholder = { Text("e.g. India Gate") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
 
-            // Category & Storage Location Dropdowns
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Category
-                ExposedDropdownMenuBox(
+            // Category Dropdown
+            ExposedDropdownMenuBox(
+                expanded = expandedCategory,
+                onExpandedChange = { expandedCategory = !expandedCategory }
+            ) {
+                OutlinedTextField(
+                    value = selectedCategory.displayName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Category") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                ExposedDropdownMenu(
                     expanded = expandedCategory,
-                    onExpandedChange = { expandedCategory = !expandedCategory },
-                    modifier = Modifier.weight(1f)
+                    onDismissRequest = { expandedCategory = false }
                 ) {
-                    OutlinedTextField(
-                        value = selectedCategory.displayName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Category") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
-                        modifier = Modifier.menuAnchor(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedCategory,
-                        onDismissRequest = { expandedCategory = false }
-                    ) {
-                        ProductCategory.entries.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat.displayName) },
-                                onClick = {
-                                    selectedCategory = cat
-                                    expandedCategory = false
-                                }
-                            )
-                        }
+                    ProductCategory.entries.forEach { cat ->
+                        DropdownMenuItem(
+                            text = { Text(cat.displayName) },
+                            onClick = {
+                                selectedCategory = cat
+                                expandedCategory = false
+                            }
+                        )
                     }
                 }
+            }
 
-                // Storage Location
+            // Location Selector & Create Location
+            Text("Storage Location", style = MaterialTheme.typography.titleMedium.copy(color = PrimaryGreen))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExposedDropdownMenuBox(
                     expanded = expandedLocation,
                     onExpandedChange = { expandedLocation = !expandedLocation },
@@ -206,39 +207,36 @@ fun AddItemScreen(
                         value = selectedLocationName,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Select Inventory") },
+                        label = { Text("Storage Location *") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedLocation) },
-                        modifier = Modifier.menuAnchor(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
                         shape = RoundedCornerShape(12.dp)
                     )
                     ExposedDropdownMenu(
                         expanded = expandedLocation,
                         onDismissRequest = { expandedLocation = false }
                     ) {
-                        locationsList.forEach { loc ->
+                        locationsList.forEach { locName ->
                             DropdownMenuItem(
-                                text = { Text(loc) },
+                                text = { Text(locName) },
                                 onClick = {
-                                    selectedLocationName = loc
+                                    selectedLocationName = locName
                                     expandedLocation = false
                                 }
                             )
                         }
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryGreen, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("+ New Location...", color = PrimaryGreen, fontWeight = FontWeight.Bold)
-                                }
-                            },
-                            onClick = {
-                                expandedLocation = false
-                                showCreateLocationDialog = true
-                            }
-                        )
                     }
+                }
+
+                IconButton(
+                    onClick = { showCreateLocationDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .size(48.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Location", tint = PrimaryGreen)
                 }
             }
 
@@ -246,29 +244,26 @@ fun AddItemScreen(
                 value = subLocation,
                 onValueChange = { subLocation = it },
                 label = { Text("Exact Sub-Location / Shelf / Box") },
-                placeholder = { Text("e.g. Shelf 2 -> Box 4") },
+                placeholder = { Text("e.g. Shelf 2, Box B") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
 
-            HorizontalDivider()
-
-            // Quantity & Stock Section
+            // Quantities & Alert Settings
             Text("Stock & Quantity Management", style = MaterialTheme.typography.titleMedium.copy(color = PrimaryGreen))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = quantity,
                     onValueChange = { quantity = it },
-                    label = { Text("Current Qty") },
+                    label = { Text("Current Qty *") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                // Unit Selector Dropdown
                 ExposedDropdownMenuBox(
                     expanded = expandedUnit,
                     onExpandedChange = { expandedUnit = !expandedUnit },
@@ -280,7 +275,9 @@ fun AddItemScreen(
                         readOnly = true,
                         label = { Text("Unit") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedUnit) },
-                        modifier = Modifier.menuAnchor(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
                         shape = RoundedCornerShape(12.dp)
                     )
                     ExposedDropdownMenu(
@@ -300,7 +297,7 @@ fun AddItemScreen(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = minStock,
                     onValueChange = { minStock = it },
@@ -310,6 +307,7 @@ fun AddItemScreen(
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
+
                 OutlinedTextField(
                     value = bufferStock,
                     onValueChange = { bufferStock = it },
@@ -321,12 +319,10 @@ fun AddItemScreen(
                 )
             }
 
-            HorizontalDivider()
-
-            // Pricing & Dates Section
+            // Price, Barcode & Expiry
             Text("Price & Dates", style = MaterialTheme.typography.titleMedium.copy(color = PrimaryGreen))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = purchasePrice,
                     onValueChange = { purchasePrice = it },
@@ -336,6 +332,7 @@ fun AddItemScreen(
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
+
                 OutlinedTextField(
                     value = expiryDate,
                     onValueChange = { expiryDate = it },
@@ -350,8 +347,9 @@ fun AddItemScreen(
                 value = barcode,
                 onValueChange = { barcode = it },
                 label = { Text("Barcode") },
+                placeholder = { Text("8901234567890") },
                 trailingIcon = {
-                    IconButton(onClick = { /* Launch Barcode Camera Scanner */ }) {
+                    IconButton(onClick = { /* Scan Barcode */ }) {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode")
                     }
                 },
@@ -364,54 +362,53 @@ fun AddItemScreen(
                 value = notes,
                 onValueChange = { notes = it },
                 label = { Text("Notes / Usage Instructions") },
+                placeholder = { Text("Store in a cool dry place.") },
                 modifier = Modifier.fillMaxWidth(),
-                maxLines = 3,
                 shape = RoundedCornerShape(12.dp)
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
+    }
 
-        // Create New Location Dialog
-        if (showCreateLocationDialog) {
-            AlertDialog(
-                onDismissRequest = { showCreateLocationDialog = false },
-                title = { Text("Create New Storage Location") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Type a name for the new inventory location:", style = MaterialTheme.typography.bodySmall)
-                        OutlinedTextField(
-                            value = newLocationInput,
-                            onValueChange = { newLocationInput = it },
-                            label = { Text("Location Name *") },
-                            placeholder = { Text("e.g. Wine Cellar") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            if (newLocationInput.isNotBlank()) {
-                                val createdName = newLocationInput.trim()
-                                addItemViewModel.createLocation(createdName)
-                                selectedLocationName = createdName
-                                newLocationInput = ""
-                                showCreateLocationDialog = false
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
-                    ) {
-                        Text("Create & Select")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showCreateLocationDialog = false }) {
-                        Text("Cancel")
-                    }
+    // Create New Location Dialog
+    if (showCreateLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateLocationDialog = false },
+            title = { Text("Create New Storage Location") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Enter a name for your new household location.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = newLocationInput,
+                        onValueChange = { newLocationInput = it },
+                        label = { Text("Location Name *") },
+                        placeholder = { Text("e.g. Wine Rack") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
                 }
-            )
-        }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newLocationInput.isNotBlank()) {
+                            val created = newLocationInput.trim()
+                            addItemViewModel.createLocation(created)
+                            locationsList.add(created)
+                            selectedLocationName = created
+                            newLocationInput = ""
+                            showCreateLocationDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                ) {
+                    Text("Create Location")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateLocationDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

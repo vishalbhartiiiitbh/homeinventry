@@ -11,9 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,8 +24,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.homeinvetry.core.ui.HomeStockHeader
 import com.example.homeinvetry.core.ui.MetricCard
 import com.example.homeinvetry.core.ui.QuickActionButton
-import com.example.homeinvetry.data.local.entity.InventoryItemEntity
-import com.example.homeinvetry.data.local.entity.ReminderEntity
 import com.example.homeinvetry.ui.theme.*
 import com.example.homeinvetry.ui.viewmodel.DashboardViewModel
 
@@ -48,9 +44,6 @@ fun HomeScreen(
     val pendingShoppingCount by dashboardViewModel.pendingShoppingCount.collectAsState()
 
     val storageLocations by dashboardViewModel.storageLocations.collectAsState()
-    val lowStockItems by dashboardViewModel.lowStockItems.collectAsState()
-    val expiringItems by dashboardViewModel.expiringItems.collectAsState()
-    val upcomingReminders by dashboardViewModel.upcomingReminders.collectAsState()
 
     Column(
         modifier = modifier
@@ -245,7 +238,7 @@ fun HomeScreen(
                 modifier = Modifier.weight(1f)
             )
             QuickActionButton(
-                title = "Shopping List",
+                title = "Shopping",
                 icon = Icons.Default.ShoppingCart,
                 containerColor = LightGreen,
                 iconTint = PrimaryGreen,
@@ -253,7 +246,7 @@ fun HomeScreen(
                 modifier = Modifier.weight(1f)
             )
             QuickActionButton(
-                title = "Add Reminder",
+                title = "Add Task",
                 icon = Icons.Default.Event,
                 containerColor = LightGreen,
                 iconTint = PrimaryGreen,

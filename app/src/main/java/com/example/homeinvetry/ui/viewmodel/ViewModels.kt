@@ -28,6 +28,22 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     val lowStockItems = inventoryRepo.getLowStockItems().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val expiringItems = inventoryRepo.getExpiringItems().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val upcomingReminders = reminderRepo.getAllReminders().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun saveVoiceItem(item: InventoryItemEntity) {
+        viewModelScope.launch {
+            inventoryRepo.insertItem(item)
+            inventoryRepo.insertBatch(
+                StockBatchEntity(
+                    itemId = item.id,
+                    batchNumber = "BATCH-01",
+                    quantity = item.quantity,
+                    unit = item.unit,
+                    purchaseDate = "Today",
+                    expiryDate = "2026-12-31"
+                )
+            )
+        }
+    }
 }
 
 class InventoryViewModel(application: Application) : AndroidViewModel(application) {
