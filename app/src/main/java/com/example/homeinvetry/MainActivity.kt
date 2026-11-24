@@ -27,6 +27,7 @@ import androidx.navigation.navArgument
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.example.homeinvetry.core.backup.AutoBackupWorker
 import com.example.homeinvetry.core.navigation.HomeStockBottomBar
 import com.example.homeinvetry.core.navigation.Screen
 import com.example.homeinvetry.core.navigation.bottomNavScreens
@@ -70,7 +71,7 @@ fun HomeStockApp() {
             permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        // Background WorkManager scheduling (runs even when app is closed!)
+        // Background WorkManager scheduling for reminders
         val reminderWorkRequest = PeriodicWorkRequestBuilder<ReminderWorker>(8, TimeUnit.HOURS)
             .build()
 
@@ -78,6 +79,16 @@ fun HomeStockApp() {
             "HomeStockReminderWorker",
             ExistingPeriodicWorkPolicy.KEEP,
             reminderWorkRequest
+        )
+
+        // Automatic End-of-Day Daily Backup scheduling (runs every 24 hours in background)
+        val autoBackupWorkRequest = PeriodicWorkRequestBuilder<AutoBackupWorker>(24, TimeUnit.HOURS)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "HomeStockAutoBackupWorker",
+            ExistingPeriodicWorkPolicy.KEEP,
+            autoBackupWorkRequest
         )
     }
 

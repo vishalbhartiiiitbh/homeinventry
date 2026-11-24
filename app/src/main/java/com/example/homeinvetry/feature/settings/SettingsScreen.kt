@@ -1,5 +1,7 @@
 package com.example.homeinvetry.feature.settings
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +31,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var showAndroidBackupInfoDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -153,11 +156,12 @@ fun SettingsScreen(
 
             item {
                 SettingsMenuRow(
-                    title = "Backup & Synchronization",
-                    subtitle = "Backup to Google Drive • Sync Devices",
-                    icon = Icons.Outlined.CloudUpload,
+                    title = "Android Backup",
+                    subtitle = "Managed by Android built-in backup service",
+                    icon = Icons.Outlined.CloudDone,
                     iconBgColor = LightBlue,
-                    iconTint = Color(0xFF2980B9)
+                    iconTint = Color(0xFF2980B9),
+                    onClick = { showAndroidBackupInfoDialog = true }
                 )
             }
 
@@ -201,6 +205,69 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    // Android Backup Info Dialog
+    if (showAndroidBackupInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showAndroidBackupInfoDialog = false },
+            title = { Text("Android Backup", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = LightGreen,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "HomeStock uses Android's built-in backup service to protect your household data. Backup and restore are managed through your Android device's backup settings.",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = PrimaryGreenDark, fontWeight = FontWeight.Medium),
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+
+                    Text("Protected Household Data:", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("• Inventory items, categories & storage locations", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                        Text("• Stock batches, transactions & FEFO rules", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                        Text("• Shopping lists & item preferences", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                        Text("• Reminders, maintenance & household tasks", style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText))
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            showAndroidBackupInfoDialog = false
+                            try {
+                                val intent = Intent("com.google.android.gms.backup.ACTION_BACKUP_SETTINGS")
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                try {
+                                    val intent = Intent(Settings.ACTION_PRIVACY_SETTINGS)
+                                    context.startActivity(intent)
+                                } catch (ex: Exception) {
+                                    // Fallback
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Outlined.Settings, contentDescription = null, tint = PrimaryGreen)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Open Device Backup Settings", color = PrimaryGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showAndroidBackupInfoDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }
 
