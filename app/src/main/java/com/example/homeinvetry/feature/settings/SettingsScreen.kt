@@ -15,9 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.homeinvetry.core.notifications.NotificationHelper
 import com.example.homeinvetry.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,6 +28,8 @@ fun SettingsScreen(
     onNavigateToAnalytics: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -131,6 +135,24 @@ fun SettingsScreen(
 
             item {
                 SettingsMenuRow(
+                    title = "Notifications & Device Alerts",
+                    subtitle = "Tap to trigger test push notification",
+                    icon = Icons.Outlined.Notifications,
+                    iconBgColor = LightYellow,
+                    iconTint = Color(0xFFE67E22),
+                    onClick = {
+                        NotificationHelper.showNotification(
+                            context,
+                            1002,
+                            "HomeStock Low Stock Alert 🚨",
+                            "Cooking Oil (1 L) is low on stock! Tap to view shopping list."
+                        )
+                    }
+                )
+            }
+
+            item {
+                SettingsMenuRow(
                     title = "Backup & Synchronization",
                     subtitle = "Backup to Google Drive • Sync Devices",
                     icon = Icons.Outlined.CloudUpload,
@@ -146,16 +168,6 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Group,
                     iconBgColor = LightBlue,
                     iconTint = Color(0xFF2980B9)
-                )
-            }
-
-            item {
-                SettingsMenuRow(
-                    title = "Notifications",
-                    subtitle = "Expiry, Refill & Task Alerts",
-                    icon = Icons.Outlined.Notifications,
-                    iconBgColor = LightYellow,
-                    iconTint = Color(0xFFE67E22)
                 )
             }
 

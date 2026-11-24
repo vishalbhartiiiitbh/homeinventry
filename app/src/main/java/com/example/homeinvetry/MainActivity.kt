@@ -1,14 +1,18 @@
 package com.example.homeinvetry
 
 import android.app.Application
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -23,6 +27,7 @@ import androidx.navigation.navArgument
 import com.example.homeinvetry.core.navigation.HomeStockBottomBar
 import com.example.homeinvetry.core.navigation.Screen
 import com.example.homeinvetry.core.navigation.bottomNavScreens
+import com.example.homeinvetry.core.notifications.NotificationHelper
 import com.example.homeinvetry.feature.analytics.AnalyticsScreen
 import com.example.homeinvetry.feature.dashboard.HomeScreen
 import com.example.homeinvetry.feature.inventory.AddItemScreen
@@ -51,6 +56,32 @@ class MainActivity : ComponentActivity() {
 fun HomeStockApp() {
     val context = LocalContext.current.applicationContext as Application
     val viewModelFactory = remember(context) { HomeStockViewModelFactory(context) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            NotificationHelper.showNotification(
+                context,
+                1001,
+                "HomeStock Notifications Enabled 🔔",
+                "You will receive live device alerts for low stock, expiries & tasks."
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            NotificationHelper.showNotification(
+                context,
+                1001,
+                "Welcome to HomeStock 📦",
+                "Your household inventory is active and being monitored."
+            )
+        }
+    }
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
