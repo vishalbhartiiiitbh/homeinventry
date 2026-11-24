@@ -21,22 +21,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.homeinvetry.data.sample.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.homeinvetry.data.local.entity.ReminderEntity
+import com.example.homeinvetry.data.sample.ReminderType
 import com.example.homeinvetry.ui.theme.*
+import com.example.homeinvetry.ui.viewmodel.RemindersViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RemindersScreen(
     onNavigateBack: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    remindersViewModel: RemindersViewModel = viewModel()
 ) {
-    val remindersList = remember { SampleDataProvider.sampleReminders.toMutableStateList() }
-    var selectedFilter by remember { mutableStateOf<ReminderType?>(null) }
+    val remindersList by remindersViewModel.reminders.collectAsState()
+    var selectedFilter by remember { mutableStateOf<String?>(null) }
+    var showAddReminderDialog by remember { mutableStateOf(false) }
 
     val filteredReminders = if (selectedFilter == null) {
         remindersList
     } else {
-        remindersList.filter { it.type == selectedFilter }
+        remindersList.filter { it.type.equals(selectedFilter, ignoreCase = true) }
     }
 
     Scaffold(
@@ -60,8 +65,8 @@ fun RemindersScreen(
                     IconButton(onClick = { /* Search */ }) {
                         Icon(Icons.Outlined.Search, contentDescription = "Search")
                     }
-                    IconButton(onClick = { /* More */ }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                    IconButton(onClick = { showAddReminderDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Reminder")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -102,8 +107,8 @@ fun RemindersScreen(
                             ReminderType.TASK -> "Tasks"
                         }
                         FilterChip(
-                            selected = selectedFilter == type,
-                            onClick = { selectedFilter = if (selectedFilter == type) null else type },
+                            selected = selectedFilter == type.name,
+                            onClick = { selectedFilter = if (selectedFilter == type.name) null else type.name },
                             label = { Text(label) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = PrimaryGreen,
@@ -115,21 +120,77 @@ fun RemindersScreen(
                 }
             }
 
-            // Reminder Cards List
+            // Reminder Cards List from Room
             items(filteredReminders, key = { it.id }) { reminder ->
-                ReminderCardView(reminder = reminder)
+                ReminderCardViewEntity(
+                    reminder = reminder,
+                    onToggleComplete = { remindersViewModel.toggleComplete(reminder) }
+                )
             }
         }
+    }
+
+    // Add Custom Reminder Dialog
+    if (showAddReminderDialog) {
+        var title by remember { mutableStateOf("") }
+        var description by remember { mutableStateOf("") }
+        var selectedType by remember { mutableStateOf("TASK") }
+        var dueDate by remember { mutableStateOf("Tomorrow") }
+
+        AlertDialog(
+            onDismissRequest = { showAddReminderDialog = false },
+            title = { Text("Create New Household Task / Reminder") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Task Title *") },
+                        placeholder = { Text("e.g. Service Air Conditioner") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Description / Details") },
+                        maxLines = 2
+                    )
+                    OutlinedTextField(
+                        value = dueDate,
+                        onValueChange = { dueDate = it },
+                        label = { Text("Due Date / Repeat") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (title.isNotBlank()) {
+                            remindersViewModel.addReminder(title.trim(), description.trim(), selectedType, dueDate.trim())
+                            showAddReminderDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                ) { Text("Save Task") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddReminderDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
 @Composable
-fun ReminderCardView(reminder: ReminderSample) {
+fun ReminderCardViewEntity(
+    reminder: ReminderEntity,
+    onToggleComplete: () -> Unit
+) {
     val (cardBg, btnBg, btnTextTint) = when (reminder.type) {
-        ReminderType.EXPIRY -> Triple(LightRed, Color(0xFFFADBD8), Color(0xFFC0392B))
-        ReminderType.REFILL -> Triple(LightYellow, Color(0xFFFCF3CF), Color(0xFFB78103))
-        ReminderType.MAINTENANCE -> Triple(LightBlue, Color(0xFFD6EAF8), Color(0xFF1E3246))
-        ReminderType.TASK -> Triple(LightGreen, Color(0xFFD4EFDF), PrimaryGreenDark)
+        "EXPIRY" -> Triple(LightRed, Color(0xFFFADBD8), Color(0xFFC0392B))
+        "REFILL" -> Triple(LightYellow, Color(0xFFFCF3CF), Color(0xFFB78103))
+        "MAINTENANCE" -> Triple(LightBlue, Color(0xFFD6EAF8), Color(0xFF1E3246))
+        else -> Triple(LightGreen, Color(0xFFD4EFDF), PrimaryGreenDark)
     }
 
     Card(
@@ -181,13 +242,13 @@ fun ReminderCardView(reminder: ReminderSample) {
                 }
             }
 
-            // Action Pill Button (View > / Refill >)
+            // Action Pill Button
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = btnBg,
                 modifier = Modifier
                     .padding(start = 8.dp)
-                    .clickable { /* Action */ }
+                    .clickable { onToggleComplete() }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -195,7 +256,7 @@ fun ReminderCardView(reminder: ReminderSample) {
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = reminder.actionLabel,
+                        text = if (reminder.isCompleted) "Done ✔" else reminder.actionLabel,
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = btnTextTint

@@ -20,16 +20,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.homeinvetry.data.sample.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.homeinvetry.data.local.entity.ShoppingItemEntity
 import com.example.homeinvetry.ui.theme.*
+import com.example.homeinvetry.ui.viewmodel.ShoppingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingScreen(
     onNavigateBack: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    shoppingViewModel: ShoppingViewModel = viewModel()
 ) {
-    val shoppingList = remember { SampleDataProvider.sampleShoppingList.toMutableStateList() }
+    val shoppingList by shoppingViewModel.shoppingItems.collectAsState()
     var selectedFilter by remember { mutableStateOf("All") }
     var newItemText by remember { mutableStateOf("") }
 
@@ -64,11 +67,9 @@ fun ShoppingScreen(
             ) {
                 Button(
                     onClick = {
-                        // Mark pending as purchased flow
-                        shoppingList.forEachIndexed { idx, item ->
-                            if (!item.isPurchased) {
-                                shoppingList[idx] = item.copy(isPurchased = true)
-                            }
+                        // Mark all pending as purchased & update stock in Room
+                        pendingItems.forEach { item ->
+                            shoppingViewModel.markItemPurchasedAndAddStock(item, item.requiredQuantity, item.estimatedPrice)
                         }
                     },
                     modifier = Modifier
@@ -171,13 +172,7 @@ fun ShoppingScreen(
                     IconButton(
                         onClick = {
                             if (newItemText.isNotBlank()) {
-                                shoppingList.add(
-                                    ShoppingItemSample(
-                                        name = newItemText.trim(),
-                                        isPurchased = false,
-                                        iconEmoji = "🛒"
-                                    )
-                                )
+                                shoppingViewModel.addShoppingItem(newItemText.trim())
                                 newItemText = ""
                             }
                         },
@@ -196,23 +191,18 @@ fun ShoppingScreen(
                 }
             }
 
-            // Pending Items List
+            // Pending Items List from Room
             if (selectedFilter != "Purchased") {
                 items(pendingItems, key = { it.id }) { item ->
-                    ShoppingRowCard(
+                    ShoppingRowCardEntity(
                         item = item,
-                        onToggle = {
-                            val idx = shoppingList.indexOfFirst { s -> s.id == item.id }
-                            if (idx != -1) {
-                                shoppingList[idx] = item.copy(isPurchased = true)
-                            }
-                        },
-                        onDelete = { shoppingList.removeIf { s -> s.id == item.id } }
+                        onToggle = { shoppingViewModel.togglePurchased(item) },
+                        onDelete = { shoppingViewModel.deleteShoppingItem(item.id) }
                     )
                 }
             }
 
-            // Purchased Section Header & Items
+            // Purchased Section Header & Items from Room
             if (selectedFilter != "Pending" && purchasedItems.isNotEmpty()) {
                 item {
                     Text(
@@ -226,15 +216,10 @@ fun ShoppingScreen(
                 }
 
                 items(purchasedItems, key = { it.id }) { item ->
-                    ShoppingRowCard(
+                    ShoppingRowCardEntity(
                         item = item,
-                        onToggle = {
-                            val idx = shoppingList.indexOfFirst { s -> s.id == item.id }
-                            if (idx != -1) {
-                                shoppingList[idx] = item.copy(isPurchased = false)
-                            }
-                        },
-                        onDelete = { shoppingList.removeIf { s -> s.id == item.id } }
+                        onToggle = { shoppingViewModel.togglePurchased(item) },
+                        onDelete = { shoppingViewModel.deleteShoppingItem(item.id) }
                     )
                 }
             }
@@ -243,8 +228,8 @@ fun ShoppingScreen(
 }
 
 @Composable
-fun ShoppingRowCard(
-    item: ShoppingItemSample,
+fun ShoppingRowCardEntity(
+    item: ShoppingItemEntity,
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {

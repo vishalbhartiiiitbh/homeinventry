@@ -1,5 +1,6 @@
 package com.example.homeinvetry
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,7 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,6 +32,7 @@ import com.example.homeinvetry.feature.search.SearchScreen
 import com.example.homeinvetry.feature.settings.SettingsScreen
 import com.example.homeinvetry.feature.shopping.ShoppingScreen
 import com.example.homeinvetry.ui.theme.HomeStockTheme
+import com.example.homeinvetry.ui.viewmodel.HomeStockViewModelFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +48,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun HomeStockApp() {
+    val context = LocalContext.current.applicationContext as Application
+    val viewModelFactory = remember(context) { HomeStockViewModelFactory(context) }
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -76,7 +84,8 @@ fun HomeStockApp() {
                     onNavigateToSearch = { navController.navigate(Screen.Search.route) },
                     onNavigateToItemDetail = { itemId ->
                         navController.navigate(Screen.ItemDetail.createRoute(itemId))
-                    }
+                    },
+                    dashboardViewModel = viewModel(factory = viewModelFactory)
                 )
             }
 
@@ -97,21 +106,24 @@ fun HomeStockApp() {
                     },
                     onNavigateToItemDetail = { itemId ->
                         navController.navigate(Screen.ItemDetail.createRoute(itemId))
-                    }
+                    },
+                    inventoryViewModel = viewModel(factory = viewModelFactory)
                 )
             }
 
             // 3. Shopping Management
             composable(Screen.Shopping.route) {
                 ShoppingScreen(
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    shoppingViewModel = viewModel(factory = viewModelFactory)
                 )
             }
 
             // 4. Reminders & Household Tasks
             composable(Screen.Reminders.route) {
                 RemindersScreen(
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    remindersViewModel = viewModel(factory = viewModelFactory)
                 )
             }
 
@@ -135,7 +147,8 @@ fun HomeStockApp() {
                     onNavigateBack = { navController.popBackStack() },
                     onItemSaved = { newItem ->
                         navController.popBackStack()
-                    }
+                    },
+                    addItemViewModel = viewModel(factory = viewModelFactory)
                 )
             }
 
@@ -147,7 +160,8 @@ fun HomeStockApp() {
                 val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
                 ItemDetailScreen(
                     itemId = itemId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    itemDetailViewModel = viewModel(factory = viewModelFactory)
                 )
             }
 

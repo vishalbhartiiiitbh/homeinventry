@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,12 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.homeinvetry.core.ui.HomeStockHeader
 import com.example.homeinvetry.core.ui.MetricCard
 import com.example.homeinvetry.core.ui.QuickActionButton
-import com.example.homeinvetry.data.sample.SampleDataProvider
-import com.example.homeinvetry.data.sample.StorageLocationType
+import com.example.homeinvetry.data.local.entity.InventoryItemEntity
+import com.example.homeinvetry.data.local.entity.ReminderEntity
 import com.example.homeinvetry.ui.theme.*
+import com.example.homeinvetry.ui.viewmodel.DashboardViewModel
 
 @Composable
 fun HomeScreen(
@@ -35,8 +39,19 @@ fun HomeScreen(
     onNavigateToAddItem: () -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToItemDetail: (itemId: String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    dashboardViewModel: DashboardViewModel = viewModel()
 ) {
+    val totalItems by dashboardViewModel.totalItemsCount.collectAsState()
+    val lowStockCount by dashboardViewModel.lowStockCount.collectAsState()
+    val expiringCount by dashboardViewModel.expiringCount.collectAsState()
+    val pendingShoppingCount by dashboardViewModel.pendingShoppingCount.collectAsState()
+
+    val storageLocations by dashboardViewModel.storageLocations.collectAsState()
+    val lowStockItems by dashboardViewModel.lowStockItems.collectAsState()
+    val expiringItems by dashboardViewModel.expiringItems.collectAsState()
+    val upcomingReminders by dashboardViewModel.upcomingReminders.collectAsState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -68,14 +83,14 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 2x2 Metric Summary Grid
+        // 2x2 Metric Summary Grid from Room DB
         Column(
             modifier = Modifier.padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard(
-                    value = "128",
+                    value = "$totalItems",
                     title = "Total Items",
                     icon = Icons.Default.Category,
                     containerColor = LightGreen,
@@ -85,7 +100,7 @@ fun HomeScreen(
                     onClick = { onNavigateToInventory(null) }
                 )
                 MetricCard(
-                    value = "6",
+                    value = "$lowStockCount",
                     title = "Low Stock",
                     icon = Icons.Default.WarningAmber,
                     containerColor = LightYellow,
@@ -97,7 +112,7 @@ fun HomeScreen(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard(
-                    value = "3",
+                    value = "$expiringCount",
                     title = "Expiring Soon",
                     icon = Icons.Default.MedicalServices,
                     containerColor = LightRed,
@@ -107,7 +122,7 @@ fun HomeScreen(
                     onClick = { onNavigateToInventory("EXPIRING") }
                 )
                 MetricCard(
-                    value = "8",
+                    value = "$pendingShoppingCount",
                     title = "Shopping Items",
                     icon = Icons.Default.ShoppingCart,
                     containerColor = LightBlue,
@@ -144,46 +159,55 @@ fun HomeScreen(
             }
         }
 
-        // Storage Locations 2x2 Grid
+        // Storage Locations 2x2 Grid from Room DB
         Column(
             modifier = Modifier.padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StorageLocationGridCard(
-                    title = "Pantry",
-                    itemCountText = "35 Items",
-                    icon = Icons.Default.Kitchen,
-                    bgColor = LightYellow,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onNavigateToInventory("PANTRY") }
-                )
-                StorageLocationGridCard(
-                    title = "Kitchen",
-                    itemCountText = "42 Items",
-                    icon = Icons.Default.Countertops,
-                    bgColor = LightGreen,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onNavigateToInventory("KITCHEN") }
-                )
+            val displayLocations = if (storageLocations.isNotEmpty()) storageLocations.take(4) else emptyList()
+            if (displayLocations.size >= 2) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val loc1 = displayLocations[0]
+                    val loc2 = displayLocations[1]
+                    StorageLocationGridCard(
+                        title = loc1.name,
+                        itemCountText = "Location",
+                        icon = Icons.Default.Kitchen,
+                        bgColor = LightYellow,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToInventory(loc1.name) }
+                    )
+                    StorageLocationGridCard(
+                        title = loc2.name,
+                        itemCountText = "Location",
+                        icon = Icons.Default.Countertops,
+                        bgColor = LightGreen,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToInventory(loc2.name) }
+                    )
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StorageLocationGridCard(
-                    title = "Fridge",
-                    itemCountText = "14 Items",
-                    icon = Icons.Default.AcUnit,
-                    bgColor = LightBlue,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onNavigateToInventory("FRIDGE") }
-                )
-                StorageLocationGridCard(
-                    title = "Freezer",
-                    itemCountText = "8 Items",
-                    icon = Icons.Default.AcUnit,
-                    bgColor = Color(0xFFE0F7FA),
-                    modifier = Modifier.weight(1f),
-                    onClick = { onNavigateToInventory("FREEZER") }
-                )
+            if (displayLocations.size >= 4) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val loc3 = displayLocations[2]
+                    val loc4 = displayLocations[3]
+                    StorageLocationGridCard(
+                        title = loc3.name,
+                        itemCountText = "Location",
+                        icon = Icons.Default.AcUnit,
+                        bgColor = LightBlue,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToInventory(loc3.name) }
+                    )
+                    StorageLocationGridCard(
+                        title = loc4.name,
+                        itemCountText = "Location",
+                        icon = Icons.Default.AcUnit,
+                        bgColor = Color(0xFFE0F7FA),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToInventory(loc4.name) }
+                    )
+                }
             }
         }
 

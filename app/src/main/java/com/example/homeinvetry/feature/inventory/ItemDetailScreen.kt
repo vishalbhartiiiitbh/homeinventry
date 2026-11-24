@@ -3,7 +3,6 @@ package com.example.homeinvetry.feature.inventory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,36 +16,43 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.homeinvetry.core.ui.StatusBadge
-import com.example.homeinvetry.data.sample.*
+import com.example.homeinvetry.data.sample.StockStatus
 import com.example.homeinvetry.ui.theme.*
+import com.example.homeinvetry.ui.viewmodel.ItemDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemDetailScreen(
     itemId: String,
     onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    itemDetailViewModel: ItemDetailViewModel = viewModel()
 ) {
-    val sampleList = remember { SampleDataProvider.sampleInventory }
-    var item by remember { mutableStateOf(sampleList.firstOrNull { it.id == itemId } ?: sampleList.first()) }
+    val itemEntity by itemDetailViewModel.getItem(itemId).collectAsState(initial = null)
+    val batchesList by itemDetailViewModel.getBatches(itemId).collectAsState(initial = emptyList())
+    val transactionsList by itemDetailViewModel.getTransactions(itemId).collectAsState(initial = emptyList())
+
     var showAddStockDialog by remember { mutableStateOf(false) }
     var showConsumeStockDialog by remember { mutableStateOf(false) }
+
+    val currentItem = itemEntity ?: return
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(item.name, style = MaterialTheme.typography.titleLarge) },
+                title = { Text(currentItem.name, style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Edit Action */ }) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit Item")
-                    }
-                    IconButton(onClick = { /* Delete Action */ }) {
+                    IconButton(onClick = {
+                        itemDetailViewModel.deleteItem(currentItem)
+                        onNavigateBack()
+                    }) {
                         Icon(Icons.Outlined.Delete, contentDescription = "Delete Item", tint = Color(0xFFC0392B))
                     }
                 },
@@ -59,7 +65,7 @@ fun ItemDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(AppBackground)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -69,7 +75,7 @@ fun ItemDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -89,19 +95,24 @@ fun ItemDetailScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = item.name.take(1).uppercase(),
-                                    style = MaterialTheme.typography.headlineLarge.copy(color = PrimaryGreenDark)
+                                    text = currentItem.iconEmoji,
+                                    style = MaterialTheme.typography.headlineLarge
                                 )
                             }
                             Column {
-                                Text(text = item.name, style = MaterialTheme.typography.headlineMedium)
+                                Text(text = currentItem.name, style = MaterialTheme.typography.headlineMedium)
                                 Text(
-                                    text = "Brand: ${item.brand.ifEmpty { "N/A" }}",
+                                    text = "Brand: ${currentItem.brand.ifEmpty { "N/A" }}",
                                     style = MaterialTheme.typography.bodyMedium.copy(color = SecondaryText)
                                 )
                             }
                         }
-                        StatusBadge(status = item.status)
+                        val stockStatusEnum = try {
+                            StockStatus.valueOf(currentItem.status)
+                        } catch (e: Exception) {
+                            StockStatus.FRESH
+                        }
+                        StatusBadge(status = stockStatusEnum)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -115,23 +126,23 @@ fun ItemDetailScreen(
                         Column {
                             Text("Current Quantity", style = MaterialTheme.typography.labelMedium.copy(color = SecondaryText))
                             Text(
-                                "${item.quantity} ${item.unit}",
+                                "${currentItem.quantity} ${currentItem.unit}",
                                 style = MaterialTheme.typography.headlineMedium.copy(color = PrimaryGreen, fontWeight = FontWeight.Bold)
                             )
                         }
                         Column {
                             Text("Minimum Stock", style = MaterialTheme.typography.labelMedium.copy(color = SecondaryText))
-                            Text("${item.minStock} ${item.unit}", style = MaterialTheme.typography.titleLarge)
+                            Text("${currentItem.minStock} ${currentItem.unit}", style = MaterialTheme.typography.titleLarge)
                         }
                         Column {
                             Text("Buffer Target", style = MaterialTheme.typography.labelMedium.copy(color = SecondaryText))
-                            Text("${item.bufferStock} ${item.unit}", style = MaterialTheme.typography.titleLarge)
+                            Text("${currentItem.bufferStock} ${currentItem.unit}", style = MaterialTheme.typography.titleLarge)
                         }
                     }
                 }
             }
 
-            // Quick Stock Action Buttons (Add Stock, Consume FEFO, Move Location)
+            // Quick Stock Action Buttons (Add Stock, Consume FEFO)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -171,20 +182,20 @@ fun ItemDetailScreen(
                 ) {
                     Text("Storage & Expiry Details", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
 
-                    DetailRow(icon = Icons.Outlined.Place, label = "Storage Location", value = item.storageLocation.displayName)
-                    if (item.subLocation.isNotEmpty()) {
-                        DetailRow(icon = Icons.Outlined.Subtitles, label = "Sub-location", value = item.subLocation)
+                    DetailRow(icon = Icons.Outlined.Place, label = "Storage Location", value = currentItem.storageLocation)
+                    if (currentItem.subLocation.isNotEmpty()) {
+                        DetailRow(icon = Icons.Outlined.Subtitles, label = "Sub-location", value = currentItem.subLocation)
                     }
-                    DetailRow(icon = Icons.Outlined.Category, label = "Category", value = item.category.displayName)
-                    DetailRow(icon = Icons.Outlined.Event, label = "Earliest Expiry Date", value = item.expiryDate)
-                    DetailRow(icon = Icons.Outlined.AttachMoney, label = "Purchase Price", value = "$${item.purchasePrice}")
-                    if (item.notes.isNotEmpty()) {
-                        DetailRow(icon = Icons.Outlined.Notes, label = "Notes", value = item.notes)
+                    DetailRow(icon = Icons.Outlined.Category, label = "Category", value = currentItem.category)
+                    DetailRow(icon = Icons.Outlined.Event, label = "Earliest Expiry Date", value = currentItem.expiryDate)
+                    DetailRow(icon = Icons.Outlined.AttachMoney, label = "Purchase Price", value = "$${currentItem.purchasePrice}")
+                    if (currentItem.notes.isNotEmpty()) {
+                        DetailRow(icon = Icons.Outlined.Notes, label = "Notes", value = currentItem.notes)
                     }
                 }
             }
 
-            // Stock Batches Section (FEFO FIFO tracking)
+            // Stock Batches Section (FEFO Tracking) from Room
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -195,17 +206,17 @@ fun ItemDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        "Stock Batches (FEFO Tracking)",
+                        "Stock Batches in Room (FEFO Order)",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
 
-                    if (item.batches.isEmpty()) {
+                    if (batchesList.isEmpty()) {
                         Text(
-                            "Single batch default: ${item.quantity} ${item.unit} (Exp: ${item.expiryDate})",
+                            "Single batch default: ${currentItem.quantity} ${currentItem.unit} (Exp: ${currentItem.expiryDate})",
                             style = MaterialTheme.typography.bodyMedium.copy(color = SecondaryText)
                         )
                     } else {
-                        item.batches.forEach { batch ->
+                        batchesList.forEach { batch ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -236,12 +247,12 @@ fun ItemDetailScreen(
         var addQty by remember { mutableStateOf("1.0") }
         AlertDialog(
             onDismissRequest = { showAddStockDialog = false },
-            title = { Text("Add Stock to ${item.name}") },
+            title = { Text("Add Stock to ${currentItem.name}") },
             text = {
                 OutlinedTextField(
                     value = addQty,
                     onValueChange = { addQty = it },
-                    label = { Text("Quantity to add (${item.unit})") },
+                    label = { Text("Quantity to add (${currentItem.unit})") },
                     singleLine = true
                 )
             },
@@ -249,13 +260,11 @@ fun ItemDetailScreen(
                 Button(
                     onClick = {
                         val added = addQty.toDoubleOrNull() ?: 0.0
-                        val newQty = item.quantity + added
-                        val newStatus = if (newQty > item.minStock) StockStatus.FRESH else item.status
-                        item = item.copy(quantity = newQty, status = newStatus)
+                        itemDetailViewModel.addStock(itemId, added)
                         showAddStockDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
-                ) { Text("Confirm Add") }
+                ) { Text("Confirm Add & Save to Room") }
             },
             dismissButton = {
                 TextButton(onClick = { showAddStockDialog = false }) { Text("Cancel") }
@@ -268,15 +277,15 @@ fun ItemDetailScreen(
         var consumeQty by remember { mutableStateOf("1.0") }
         AlertDialog(
             onDismissRequest = { showConsumeStockDialog = false },
-            title = { Text("Consume Stock (FEFO)") },
+            title = { Text("Consume Stock (FEFO Order)") },
             text = {
                 Column {
-                    Text("Consumes stock from the batch with earliest expiry first.", style = MaterialTheme.typography.bodySmall)
+                    Text("Consumes stock from the earliest expiring batch first and updates Room database.", style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = consumeQty,
                         onValueChange = { consumeQty = it },
-                        label = { Text("Quantity consumed (${item.unit})") },
+                        label = { Text("Quantity consumed (${currentItem.unit})") },
                         singleLine = true
                     )
                 }
@@ -285,13 +294,11 @@ fun ItemDetailScreen(
                 Button(
                     onClick = {
                         val consumed = consumeQty.toDoubleOrNull() ?: 0.0
-                        val newQty = maxOf(0.0, item.quantity - consumed)
-                        val newStatus = if (newQty <= item.minStock) StockStatus.LOW_STOCK else item.status
-                        item = item.copy(quantity = newQty, status = newStatus)
+                        itemDetailViewModel.consumeStockFefo(itemId, consumed)
                         showConsumeStockDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B))
-                ) { Text("Confirm Consume") }
+                ) { Text("Confirm FEFO Consume") }
             },
             dismissButton = {
                 TextButton(onClick = { showConsumeStockDialog = false }) { Text("Cancel") }

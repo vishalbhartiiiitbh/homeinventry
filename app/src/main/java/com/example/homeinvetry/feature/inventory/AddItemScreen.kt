@@ -18,22 +18,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.homeinvetry.data.local.entity.InventoryItemEntity
 import com.example.homeinvetry.data.sample.*
 import com.example.homeinvetry.ui.theme.*
+import com.example.homeinvetry.ui.viewmodel.AddItemViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddItemScreen(
     initialLocationName: String? = null,
     onNavigateBack: () -> Unit,
-    onItemSaved: (InventoryItemSample) -> Unit,
-    modifier: Modifier = Modifier
+    onItemSaved: (InventoryItemEntity) -> Unit,
+    modifier: Modifier = Modifier,
+    addItemViewModel: AddItemViewModel = viewModel()
 ) {
     var name by remember { mutableStateOf("") }
     var brand by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(ProductCategory.RICE) }
 
-    val locationsList = remember { mutableStateListOf("Pantry", "Kitchen", "Fridge", "Freezer", "Bathroom", "Store Room") }
+    val storageLocationsEntities by addItemViewModel.storageLocations.collectAsState()
+    val locationsList = remember(storageLocationsEntities) {
+        if (storageLocationsEntities.isNotEmpty()) storageLocationsEntities.map { it.name }.toMutableStateList()
+        else mutableStateListOf("Pantry", "Kitchen", "Fridge", "Freezer", "Bathroom", "Store Room")
+    }
+
     var selectedLocationName by remember { mutableStateOf(initialLocationName ?: "Pantry") }
     var showCreateLocationDialog by remember { mutableStateOf(false) }
     var newLocationInput by remember { mutableStateOf("") }
@@ -87,16 +96,13 @@ fun AddItemScreen(
                                 val qtyVal = quantity.toDoubleOrNull() ?: 1.0
                                 val minVal = minStock.toDoubleOrNull() ?: 1.0
                                 val bufVal = bufferStock.toDoubleOrNull() ?: (minVal * 1.5)
-                                val statusVal = if (qtyVal <= minVal) StockStatus.LOW_STOCK else StockStatus.FRESH
-                                val targetLoc = StorageLocationType.entries.firstOrNull {
-                                    it.displayName.equals(selectedLocationName, ignoreCase = true)
-                                } ?: StorageLocationType.CUSTOM
+                                val statusVal = if (qtyVal <= minVal) "LOW_STOCK" else "FRESH"
 
-                                val newItem = InventoryItemSample(
+                                val newItem = InventoryItemEntity(
                                     name = name.trim(),
                                     brand = brand.trim(),
-                                    category = selectedCategory,
-                                    storageLocation = targetLoc,
+                                    category = selectedCategory.displayName,
+                                    storageLocation = selectedLocationName,
                                     subLocation = subLocation.trim(),
                                     quantity = qtyVal,
                                     minStock = minVal,
@@ -108,6 +114,8 @@ fun AddItemScreen(
                                     notes = notes.trim(),
                                     barcode = barcode.trim()
                                 )
+
+                                addItemViewModel.saveItem(newItem)
                                 onItemSaved(newItem)
                                 onNavigateBack()
                             }
@@ -387,9 +395,7 @@ fun AddItemScreen(
                         onClick = {
                             if (newLocationInput.isNotBlank()) {
                                 val createdName = newLocationInput.trim()
-                                if (!locationsList.contains(createdName)) {
-                                    locationsList.add(createdName)
-                                }
+                                addItemViewModel.createLocation(createdName)
                                 selectedLocationName = createdName
                                 newLocationInput = ""
                                 showCreateLocationDialog = false

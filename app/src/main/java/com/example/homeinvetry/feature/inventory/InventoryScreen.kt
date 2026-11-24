@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Delete
@@ -22,8 +24,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.homeinvetry.data.sample.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.homeinvetry.data.local.entity.InventoryItemEntity
 import com.example.homeinvetry.ui.theme.*
+import com.example.homeinvetry.ui.viewmodel.InventoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,32 +35,29 @@ fun InventoryScreen(
     initialFilter: String? = null,
     onNavigateToAddItem: (selectedLocationName: String) -> Unit,
     onNavigateToItemDetail: (itemId: String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    inventoryViewModel: InventoryViewModel = viewModel()
 ) {
-    val allItems = remember { SampleDataProvider.sampleInventory.toMutableStateList() }
-    val customLocationsList = remember { mutableStateListOf("Pantry", "Kitchen", "Fridge", "Freezer", "Bathroom", "Store Room") }
+    val itemsList by inventoryViewModel.inventoryItems.collectAsState()
+    val storageLocationsEntities by inventoryViewModel.storageLocations.collectAsState()
+    val selectedLocationName by inventoryViewModel.selectedLocation.collectAsState()
 
-    var selectedLocationName by remember { mutableStateOf(initialFilter ?: "Pantry") }
+    LaunchedEffect(initialFilter) {
+        if (!initialFilter.isNullOrEmpty()) {
+            inventoryViewModel.selectLocation(initialFilter)
+        }
+    }
+
     var showLocationSelectorDialog by remember { mutableStateOf(false) }
     var showCreateLocationDialog by remember { mutableStateOf(false) }
     var newLocationInput by remember { mutableStateOf("") }
 
     // Deletion states
-    var itemToDelete by remember { mutableStateOf<InventoryItemSample?>(null) }
+    var itemToDelete by remember { mutableStateOf<InventoryItemEntity?>(null) }
     var locationToDelete by remember { mutableStateOf<String?>(null) }
 
-    // Filter items based on selected location
-    val filteredItems = if (selectedLocationName == "All" || selectedLocationName.isBlank()) {
-        allItems
-    } else {
-        allItems.filter {
-            it.storageLocation.displayName.equals(selectedLocationName, ignoreCase = true) ||
-                    selectedLocationName.contains(it.storageLocation.name, ignoreCase = true)
-        }
-    }
-
     val displayedLocationTitle = if (selectedLocationName == "All") "All Inventories" else selectedLocationName
-    val displayedItemCount = if (selectedLocationName == "All") allItems.size else filteredItems.size
+    val displayedItemCount = itemsList.size
 
     val selectedLocationIcon = when (selectedLocationName.lowercase()) {
         "pantry" -> Icons.Default.Kitchen
@@ -206,11 +207,11 @@ fun InventoryScreen(
                         }
                     }
 
-                    // 4 Stat Circles for filtered items
-                    val inStockCount = filteredItems.count { it.status == StockStatus.FRESH }
-                    val lowStockCount = filteredItems.count { it.status == StockStatus.LOW_STOCK }
-                    val expiringCount = filteredItems.count { it.status == StockStatus.EXPIRING_SOON }
-                    val expiredCount = filteredItems.count { it.status == StockStatus.EXPIRED }
+                    // 4 Stat Circles
+                    val inStockCount = itemsList.count { it.status == "FRESH" }
+                    val lowStockCount = itemsList.count { it.status == "LOW_STOCK" }
+                    val expiringCount = itemsList.count { it.status == "EXPIRING_SOON" }
+                    val expiredCount = itemsList.count { it.status == "EXPIRED" }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -232,8 +233,8 @@ fun InventoryScreen(
                 )
             }
 
-            // Product Cards List
-            if (filteredItems.isEmpty()) {
+            // Product Cards List from Room
+            if (itemsList.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -255,8 +256,8 @@ fun InventoryScreen(
                     }
                 }
             } else {
-                items(filteredItems) { item ->
-                    PantryItemRow(
+                items(itemsList, key = { it.id }) { item ->
+                    PantryItemRowEntity(
                         item = item,
                         onClick = { onNavigateToItemDetail(item.id) },
                         onDeleteItem = { itemToDelete = item }
@@ -274,7 +275,13 @@ fun InventoryScreen(
                 Text("Select Inventory Location", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         "Choose which household storage location to view or manage:",
                         style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText)
@@ -284,23 +291,20 @@ fun InventoryScreen(
                     // All Inventories Option
                     LocationOptionRow(
                         name = "All Inventories",
-                        itemCount = allItems.size,
+                        itemCount = itemsList.size,
                         isSelected = selectedLocationName == "All",
                         icon = Icons.Default.Category,
                         onClick = {
-                            selectedLocationName = "All"
+                            inventoryViewModel.selectLocation("All")
                             showLocationSelectorDialog = false
                         }
                     )
 
                     HorizontalDivider()
 
-                    // Storage Locations List
-                    customLocationsList.forEach { locName ->
-                        val count = allItems.count {
-                            it.storageLocation.displayName.equals(locName, ignoreCase = true) ||
-                                    locName.contains(it.storageLocation.name, ignoreCase = true)
-                        }
+                    // Storage Locations List from Room
+                    storageLocationsEntities.forEach { locEntity ->
+                        val locName = locEntity.name
                         val locIcon = when (locName.lowercase()) {
                             "pantry" -> Icons.Default.Kitchen
                             "kitchen" -> Icons.Default.Countertops
@@ -313,11 +317,11 @@ fun InventoryScreen(
 
                         LocationOptionRow(
                             name = locName,
-                            itemCount = count,
+                            itemCount = 0,
                             isSelected = selectedLocationName.equals(locName, ignoreCase = true),
                             icon = locIcon,
                             onClick = {
-                                selectedLocationName = locName
+                                inventoryViewModel.selectLocation(locName)
                                 showLocationSelectorDialog = false
                             },
                             onDeleteLocation = {
@@ -375,10 +379,8 @@ fun InventoryScreen(
                     onClick = {
                         if (newLocationInput.isNotBlank()) {
                             val createdName = newLocationInput.trim()
-                            if (!customLocationsList.contains(createdName)) {
-                                customLocationsList.add(createdName)
-                            }
-                            selectedLocationName = createdName
+                            inventoryViewModel.createLocation(createdName)
+                            inventoryViewModel.selectLocation(createdName)
                             newLocationInput = ""
                             showCreateLocationDialog = false
                         }
@@ -403,14 +405,14 @@ fun InventoryScreen(
             title = { Text("Delete '${targetItem.name}'?") },
             text = {
                 Text(
-                    "Are you sure you want to delete this inventory item? All associated stock batches and records will be removed from your household database.",
+                    "Are you sure you want to delete this inventory item? All associated stock batches and records will be permanently removed from Room database.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        allItems.removeIf { it.id == targetItem.id }
+                        inventoryViewModel.deleteItem(targetItem)
                         itemToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B))
@@ -433,16 +435,16 @@ fun InventoryScreen(
             title = { Text("Delete Location '$locName'?") },
             text = {
                 Text(
-                    "Are you sure you want to delete this storage location? Any inventory items assigned to $locName will remain in your database.",
+                    "Are you sure you want to delete this storage location from Room database?",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        customLocationsList.remove(locName)
+                        inventoryViewModel.deleteLocation(locName)
                         if (selectedLocationName.equals(locName, ignoreCase = true)) {
-                            selectedLocationName = "All"
+                            inventoryViewModel.selectLocation("All")
                         }
                         locationToDelete = null
                         showLocationSelectorDialog = false
@@ -457,42 +459,6 @@ fun InventoryScreen(
                     Text("Cancel")
                 }
             }
-        )
-    }
-}
-
-@Composable
-fun QuickStatCircle(
-    count: String,
-    label: String,
-    color: Color,
-    bgColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(bgColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = count,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-            )
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall.copy(color = SecondaryText, fontSize = 11.sp),
-            maxLines = 1
         )
     }
 }
@@ -539,10 +505,6 @@ fun LocationOptionRow(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "$itemCount items",
-                    style = MaterialTheme.typography.labelMedium.copy(color = SecondaryText)
-                )
                 if (onDeleteLocation != null && name != "All Inventories") {
                     IconButton(onClick = onDeleteLocation, modifier = Modifier.size(28.dp)) {
                         Icon(
@@ -559,8 +521,44 @@ fun LocationOptionRow(
 }
 
 @Composable
-fun PantryItemRow(
-    item: InventoryItemSample,
+fun QuickStatCircle(
+    count: String,
+    label: String,
+    color: Color,
+    bgColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(bgColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = count,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(color = SecondaryText, fontSize = 11.sp),
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+fun PantryItemRowEntity(
+    item: InventoryItemEntity,
     onClick: () -> Unit,
     onDeleteItem: () -> Unit
 ) {
