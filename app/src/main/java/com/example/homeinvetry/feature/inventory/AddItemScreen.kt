@@ -1,6 +1,7 @@
 package com.example.homeinvetry.feature.inventory
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +27,9 @@ import com.example.homeinvetry.ui.theme.*
 import com.example.homeinvetry.ui.viewmodel.AddItemViewModel
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +62,12 @@ fun AddItemScreen(
     var minStock by remember { mutableStateOf("1.0") }
     var bufferStock by remember { mutableStateOf("2.0") }
     var purchasePrice by remember { mutableStateOf("0.00") }
-    var expiryDate by remember { mutableStateOf("2026-03-01") }
+
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    var expiryDate by remember { mutableStateOf(sdf.format(Date(System.currentTimeMillis() + 30L * 24 * 3600 * 1000))) }
+    var showDatePickerDialog by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
+
     var notes by remember { mutableStateOf("") }
     var barcode by remember { mutableStateOf("") }
 
@@ -331,7 +341,7 @@ fun AddItemScreen(
                 )
             }
 
-            // Price, Barcode & Expiry
+            // Price, Barcode & Calendar Expiry Date Picker
             Text("Price & Dates", style = MaterialTheme.typography.titleMedium.copy(color = PrimaryGreen))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -345,14 +355,24 @@ fun AddItemScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                OutlinedTextField(
-                    value = expiryDate,
-                    onValueChange = { expiryDate = it },
-                    label = { Text("Expiry Date (YYYY-MM-DD)") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = expiryDate,
+                        onValueChange = { expiryDate = it },
+                        label = { Text("Expiry Date *") },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showDatePickerDialog = true }) {
+                                Icon(Icons.Default.CalendarToday, contentDescription = "Pick Expiry Date from Calendar", tint = PrimaryGreen)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDatePickerDialog = true },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -390,6 +410,30 @@ fun AddItemScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
+        }
+    }
+
+    // Material 3 Calendar Date Picker Dialog
+    if (showDatePickerDialog) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        expiryDate = sdf.format(Date(millis))
+                    }
+                    showDatePickerDialog = false
+                }) {
+                    Text("Select Date")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePickerDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 

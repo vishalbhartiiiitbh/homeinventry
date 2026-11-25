@@ -1,6 +1,7 @@
 package com.example.homeinvetry.feature.inventory
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,9 @@ import com.example.homeinvetry.core.ui.StatusBadge
 import com.example.homeinvetry.data.sample.StockStatus
 import com.example.homeinvetry.ui.theme.*
 import com.example.homeinvetry.ui.viewmodel.ItemDetailViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -248,6 +252,10 @@ fun ItemDetailScreen(
         var addExpiryDate by remember { mutableStateOf(currentItem.expiryDate) }
         var addPrice by remember { mutableStateOf("0.00") }
 
+        var showAddStockDatePicker by remember { mutableStateOf(false) }
+        val addStockDatePickerState = rememberDatePickerState()
+        val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
         AlertDialog(
             onDismissRequest = { showAddStockDialog = false },
             title = { Text("Add Stock to ${currentItem.name}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
@@ -266,7 +274,16 @@ fun ItemDetailScreen(
                     OutlinedTextField(
                         value = addExpiryDate,
                         onValueChange = { addExpiryDate = it },
-                        label = { Text("Batch Expiry Date (YYYY-MM-DD) *") },
+                        label = { Text("Batch Expiry Date *") },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showAddStockDatePicker = true }) {
+                                Icon(Icons.Default.CalendarToday, contentDescription = "Pick Expiry Date from Calendar", tint = PrimaryGreen)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAddStockDatePicker = true },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp)
                     )
@@ -297,6 +314,30 @@ fun ItemDetailScreen(
                 TextButton(onClick = { showAddStockDialog = false }) { Text("Cancel") }
             }
         )
+
+        // Material 3 DatePicker for Add Stock Dialog
+        if (showAddStockDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showAddStockDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        addStockDatePickerState.selectedDateMillis?.let { millis ->
+                            addExpiryDate = sdf.format(Date(millis))
+                        }
+                        showAddStockDatePicker = false
+                    }) {
+                        Text("Select Date")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAddStockDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = addStockDatePickerState)
+            }
+        }
     }
 
     // Consume Stock Dialog (FEFO)
